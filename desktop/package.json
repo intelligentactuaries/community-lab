@@ -1,0 +1,35 @@
+{
+  "name": "community-lab-ide",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Community Lab IDE: an independent desktop IDE for actuarial agent-based simulation. A province where every person is an agent, on published South African bases, with double-entry books, a burial society, paired experiments on a local worker pool and a workbench of scenario, experiment and script files. Runs offline; a local model scripts the conversations.",
+  "homepage": "https://intelligentactuaries.com/community-lab",
+  "author": {
+    "name": "Intelligent Actuaries",
+    "email": "hello@intelligentactuaries.com"
+  },
+  "license": "LicenseRef-Scelo-IDE-1.1",
+  "main": "dist/main.js",
+  "scripts": {
+    "build:main": "tsc -p tsconfig.json",
+    "bundle:server": "bash scripts/bundle-server.sh",
+    "icons": "python3 scripts/make-icons.py",
+    "build": "bun run bundle:server && bun run build:main",
+    "dev": "bun run build:main && electron .",
+    "start": "electron .",
+    "dist:linux": "bun run build && electron-builder --linux AppImage deb --publish never",
+    "dist:win": "TARGET_OS=win bun run build && electron-builder --win nsis --publish never",
+    "dist:mac": "TARGET_OS=mac bun run build && electron-builder --mac dir --arm64 --publish never -c.mac.identity=null -c.mac.notarize=false",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "electron-log": "^5.2.0",
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8",
+    "typescript": "^5.6.0"
+  }
+}

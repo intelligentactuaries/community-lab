@@ -1,0 +1,135 @@
+# Community Lab IDE: electron-builder 25 configuration.
+#
+# The lessons carried over from Scelo IDE's packaging (apps/scelo-ide), each
+# learned from a broken release there:
+#   - artifactName is hyphenated: GitHub turns a space in an asset name into a
+#     dot, and latest-linux.yml must name the file as uploaded.
+#   - the Linux description is FOLDED (>-): it becomes the .desktop Comment,
+#     which may not span lines.
+#   - `desktop` is a FLAT map on electron-builder 25 (the nested `entry:` form
+#     is 26+ and would be written out as "[object Object]").
+#   - StartupWMClass must equal the window's real WM_CLASS, which Electron
+#     takes from package.json's name (there is no productName there, on
+#     purpose: adding one would rename app.name and move the user's data).
+#   - the AppStream metainfo is installed by passing it straight to fpm, and
+#     names its package (<pkgname>), or App Center shows "Unknown publisher".
+appId: io.intelligentactuaries.communitylab
+productName: Community Lab IDE
+executableName: community-lab-ide
+copyright: Copyright © 2026 Intelligent Actuaries (Pty) Ltd
+artifactName: Community-Lab-IDE-${version}-${arch}.${ext}
+
+# The engine is a self-contained executable (resources/server); the main
+# process needs no native modules, so nothing is rebuilt for Electron.
+npmRebuild: false
+
+publish:
+  - provider: github
+    owner: intelligentactuaries
+    repo: community-lab
+    releaseType: release
+
+directories:
+  output: build
+  buildResources: resources
+
+extraResources:
+  # The engine: the compiled Bun server with the engine's worker inside it,
+  # and the built client it serves (scripts/bundle-server.sh).
+  - from: resources/server
+    to: server
+    filter: ["**/*"]
+  - from: resources/icons
+    to: icons
+    filter: ["**/*"]
+  # The license travels with every installation (Section 6 of it asks for that).
+  - from: ../LICENSE
+    to: LICENSE.txt
+
+files:
+  - dist/**/*
+  - static/**/*
+  - package.json
+  - "!**/*.map"
+  - "!**/*.ts"
+  - "!**/node_modules/**/{test,tests,docs,example,examples}/**"
+  - "!**/node_modules/**/*.md"
+
+asar: true
+
+# ─── Linux ─────────────────────────────────────────────────────────────
+linux:
+  maintainer: Intelligent Actuaries <hello@intelligentactuaries.com>
+  category: Science
+  synopsis: An IDE for actuarial agent-based simulation
+  description: >-
+    Community Lab IDE is a desktop IDE for actuarial agent-based simulation:
+    a South African province where every person is an agent, on published
+    mortality and fertility bases, with double-entry books, a burial society,
+    paired experiments on a local worker pool, and a workbench of province,
+    experiment and script files. It runs offline; a local model scripts the
+    conversations.
+  desktop:
+    Name: Community Lab IDE
+    GenericName: Actuarial simulation IDE
+    Keywords: actuarial;simulation;agent-based;microsimulation;mortality;demography;insurance;economics;
+    StartupWMClass: community-lab-ide
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  icon: resources/icons
+
+deb:
+  # electron-builder's default Depends (setting `depends` replaces them).
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+    - libuuid1
+    - libsecret-1-0
+  fpm:
+    - "packaging/io.intelligentactuaries.communitylab.metainfo.xml=/usr/share/metainfo/io.intelligentactuaries.communitylab.metainfo.xml"
+
+# ─── macOS ─────────────────────────────────────────────────────────────
+# Unsigned until there is an Apple Developer ID: the release workflow builds
+# the .app with signing off, ad-hoc signs it, and makes the .dmg itself
+# (.github/workflows/release-macos.yml). Apple Silicon only.
+mac:
+  category: public.app-category.education
+  icon: resources/icons/icon.icns
+  executableName: Community Lab IDE
+  target:
+    - target: dmg
+      arch: [arm64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  extendInfo:
+    NSHighResolutionCapable: true
+    NSHumanReadableCopyright: Copyright © 2026 Intelligent Actuaries (Pty) Ltd
+
+# ─── Windows ───────────────────────────────────────────────────────────
+# Unsigned until there is a code-signing certificate: SmartScreen warns on
+# first launch. No latest.yml is uploaded, so Windows does not auto-update.
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icons/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Community Lab IDE
+  # The installer shows the license before installing: resources/license.txt, a copy of ../LICENSE made by
+  # scripts/bundle-server.sh (electron-builder looks for license.txt in buildResources by itself).

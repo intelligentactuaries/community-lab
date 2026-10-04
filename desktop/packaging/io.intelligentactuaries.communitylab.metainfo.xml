@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  AppStream metainfo for Community Lab IDE: what App Center and GNOME
+  Software read for the publisher, license and release dates. Installed to
+  /usr/share/metainfo by the .deb (electron-builder.yml, deb.fpm). Its <id>
+  is the app id, <pkgname> ties it to the Debian package (without it the
+  store lists the bare package as "Unknown publisher"), and <launchable>
+  names the .desktop file electron-builder installs (from executableName).
+
+  Validate with:  appstreamcli validate io.intelligentactuaries.communitylab.metainfo.xml
+  Add a <release> on every version, newest first.
+-->
+<component type="desktop-application">
+  <id>io.intelligentactuaries.communitylab</id>
+  <pkgname>community-lab-ide</pkgname>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-Scelo-IDE-1.1</project_license>
+
+  <name>Community Lab IDE</name>
+  <summary>An IDE for actuarial agent-based simulation</summary>
+
+  <developer id="com.intelligentactuaries">
+    <name>Intelligent Actuaries</name>
+  </developer>
+  <developer_name>Intelligent Actuaries</developer_name>
+
+  <description>
+    <p>
+      Community Lab IDE is a desktop IDE for actuarial agent-based
+      simulation. Unity Province is three cities, a centre and an airport,
+      where every one of about four hundred residents is an agent living on
+      published South African mortality and fertility bases. Every rand is
+      posted to hash-chained double-entry books, a burial society carries the
+      risk, and the analytics measure actual against expected experience.
+    </p>
+    <p>
+      A workbench keeps provinces, paired experiments and scripts as files in
+      a folder: run a province on a new basis, put an experiment on the local
+      worker pool with common random numbers and 95% intervals, or script the
+      engine directly. It runs offline; a local model scripts the
+      conversations.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">community-lab-ide.desktop</launchable>
+
+  <url type="homepage">https://intelligentactuaries.com/community-lab</url>
+  <url type="bugtracker">https://github.com/intelligentactuaries/community-lab/issues</url>
+  <url type="vcs-browser">https://github.com/intelligentactuaries/community-lab</url>
+
+  <categories>
+    <category>Science</category>
+    <category>Education</category>
+  </categories>
+
+  <keywords>
+    <keyword>actuarial</keyword>
+    <keyword>simulation</keyword>
+    <keyword>agent-based</keyword>
+    <keyword>mortality</keyword>
+    <keyword>demography</keyword>
+    <keyword>insurance</keyword>
+  </keywords>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.1.0" date="2026-10-04">
+      <description>
+        <p>
+          The first release of Community Lab IDE as an application of its own,
+          independent of Scelo IDE and the swarm. The province, its analytics,
+          the actuarial workbench and the policy and stress lab, with a new
+          workbench of files: provinces, experiments and scripts in a folder
+          you choose, an editor that knows their shapes, a console, and a run
+          for each. Exports save to the workspace or to disk, and a mortality
+          table can be imported from CSV to live the province on.
+        </p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:" />
+<title>Community Lab IDE</title>
+<style>
+  /* The launch screen while the engine starts: the mark on the app's own ground, in the theme the OS asks for. */
+  :root { --bg: #E8E4D8; --fg: #181715; --muted: #605A51; --line: #CDC7B8; --accent: #26714C; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1B1815; --fg: #F1ECDF; --muted: #978F82; --line: #423A31; --accent: #82D7AF; } }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font-family: 'SN Pro', -apple-system, 'Segoe UI', Ubuntu, Cantarell, sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; user-select: none; }
+  main { height: 100%; display: grid; place-items: center; }
+  .box { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .mark { width: 132px; height: 132px; opacity: 0; transform: translateY(6px) scale(0.98); animation: in 900ms cubic-bezier(0.16, 1, 0.3, 1) 80ms forwards; }
+  .name { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 600; opacity: 0; animation: in 700ms cubic-bezier(0.16, 1, 0.3, 1) 380ms forwards; }
+  .bar { width: 168px; height: 2px; background: var(--line); border-radius: 2px; overflow: hidden; opacity: 0; animation: in 500ms ease 700ms forwards; }
+  .bar i { display: block; height: 100%; width: 40%; background: var(--accent); border-radius: 2px; animation: run 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+  .status { min-height: 18px; font-size: 12px; color: var(--muted); letter-spacing: 0.02em; opacity: 0; animation: in 500ms ease 760ms forwards; text-align: center; max-width: 560px; }
+  .err .bar { display: none; }
+  .err .status { color: #B43939; }
+  pre { display: none; max-width: min(760px, 90vw); max-height: 34vh; overflow: auto; font: 11px/1.45 ui-monospace, 'DejaVu Sans Mono', Menlo, Consolas, monospace; color: var(--muted); background: color-mix(in srgb, var(--fg) 5%, transparent); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; user-select: text; }
+  .err pre { display: block; }
+  @keyframes in { to { opacity: 1; transform: none; } }
+  @keyframes run { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+  @media (prefers-reduced-motion: reduce) { .mark, .name, .bar, .status { animation: none; opacity: 1; transform: none; } .bar i { animation: none; width: 100%; opacity: 0.5; } }
+</style>
+</head>
+<body>
+<main>
+  <div class="box" id="box">
+    <div class="mark"><svg viewBox="0 0 1000 1000" aria-hidden="true"><g transform="translate(166.3093415007657,676.5084226646247) scale(0.6125574272588055)" fill="currentColor">
+    <g transform="matrix(1.0,0,0,-1.0,0.0,0.0)"><path d="M396 -9Q291 -11 214.5 32.0Q138 75 96.5 153.5Q55 232 55 335Q55 407 78.5 470.0Q102 533 146.5 580.0Q191 627 254.5 653.0Q318 679 396 679Q467 679 520.5 655.5Q574 632 607 598Q621 585 624.5 570.5Q628 556 623.0 544.0Q618 532 607.0 525.5Q596 519 581.0 520.5Q566 522 551 535Q531 553 507.5 566.0Q484 579 455.0 586.0Q426 593 389 593Q335 593 291.0 572.5Q247 552 216.0 516.0Q185 480 169.0 433.5Q153 387 153 335Q153 256 181.5 198.0Q210 140 263.0 108.5Q316 77 389 77Q436 77 481.0 91.5Q526 106 558 136Q572 150 586.0 151.5Q600 153 610.5 146.0Q621 139 626.0 127.5Q631 116 629.5 101.5Q628 87 616 75Q591 48 555.0 29.5Q519 11 478.0 1.0Q437 -9 396 -9Z"/></g>
+    <g transform="matrix(0.3,0,0,-0.3,703.0,100.0)"><path d="M300 -9Q178 -9 109.0 76.0Q40 161 40 336Q40 455 71.0 530.5Q102 606 160.5 642.5Q219 679 300 679Q382 679 440.0 643.0Q498 607 529.0 531.5Q560 456 560 337Q560 220 529.0 143.0Q498 66 440.0 28.5Q382 -9 300 -9ZM300 72Q353 72 390.0 98.0Q427 124 446.0 182.5Q465 241 465 337Q465 435 446.0 492.0Q427 549 390.0 573.5Q353 598 300 598Q247 598 210.0 573.0Q173 548 154.0 491.0Q135 434 135 337Q135 241 154.0 182.5Q173 124 210.0 98.0Q247 72 300 72Z"/></g>
+    <g transform="matrix(0.3,0,0,-0.3,883.0,100.0)"><path d="M118 -4Q91 -4 74.0 13.0Q57 30 57 57Q57 83 74.0 100.0Q91 117 118 117Q146 117 162.0 100.0Q178 83 178 57Q178 30 162.0 13.0Q146 -4 118 -4Z"/></g>
+    <g transform="matrix(0.3,0,0,-0.3,953.2,100.0)"><path d="M223 -7Q200 -7 188.0 6.0Q176 19 176 42V591H224L92 472Q80 461 66.5 459.0Q53 457 43.0 462.5Q33 468 27.5 478.5Q22 489 25.0 502.0Q28 515 42 528L182 659Q195 670 206.0 673.5Q217 677 230 677Q243 677 252.0 672.0Q261 667 266.0 657.5Q271 648 271 634V42Q271 19 259.5 6.0Q248 -7 223 -7Z"/></g>
+  </g></svg></div>
+    <div class="name">Community Lab</div>
+    <div class="bar"><i></i></div>
+    <div class="status" id="status">Starting the engine</div>
+    <pre id="log"></pre>
+  </div>
+</main>
+<script>
+  // The main process reports progress here (desktop/src/main.ts).
+  window.setStatus = function (text) { document.getElementById('status').textContent = text; };
+  window.setError = function (text, log) {
+    document.getElementById('box').classList.add('err');
+    document.getElementById('status').textContent = text;
+    document.getElementById('log').textContent = log || '';
+  };
+</script>
+</body>
+</html>
