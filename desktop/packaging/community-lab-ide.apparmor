@@ -1,0 +1,18 @@
+# AppArmor profile for Community Lab IDE, installed by the .deb to
+# /etc/apparmor.d/community-lab-ide.
+#
+# Ubuntu 24.04 restricts unprivileged user namespaces to programs whose
+# profile allows them, and Chromium's sandbox (in Electron) builds on them.
+# This profile changes nothing else: it is unconfined, and only names the
+# program and grants it `userns`, as Ubuntu's own profiles for other Electron
+# apps do (code, slack, obsidian). Local additions go in
+# /etc/apparmor.d/local/community-lab-ide.
+
+abi <abi/4.0>,
+include <tunables/global>
+
+profile community-lab-ide "/opt/Community Lab IDE/community-lab-ide" flags=(unconfined) {
+  userns,
+
+  include if exists <local/community-lab-ide>
+}

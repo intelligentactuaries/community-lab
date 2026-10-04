@@ -13,9 +13,11 @@ downloaded when it runs.
 sudo apt install ./Community-Lab-IDE-0.1.0-amd64.deb
 ```
 
-`apt` pulls in what it needs. Ubuntu's App Center calls a package installed this way "third party"; check it
-against the SHA-256 in the release notes if you want to verify it. Remove it with
-`sudo apt remove community-lab-ide`.
+`apt` pulls in what it needs. It also installs an AppArmor profile, `/etc/apparmor.d/community-lab-ide`, which
+does nothing but let the app use the unprivileged user namespaces Chromium's sandbox needs: Ubuntu 24.04 allows
+them only to programs whose profile says so, as it does for VS Code and other Electron apps. Ubuntu's App Center
+calls a package installed this way "third party"; check it against the SHA-256 in the release notes if you want to
+verify it. Remove it with `sudo apt remove community-lab-ide` (`purge` also removes the profile).
 
 **The AppImage** (any recent x64 distribution):
 
@@ -25,8 +27,10 @@ chmod +x Community-Lab-IDE-0.1.0-x86_64.AppImage
 ```
 
 It needs FUSE 2, which Ubuntu 22.04 and later no longer install by default: if it exits with a `libfuse.so.2`
-error, `sudo apt install libfuse2t64` (`libfuse2` before 24.04). The AppImage updates itself from the Releases tab:
-it checks a little after it starts and asks before restarting.
+error, `sudo apt install libfuse2t64` (`libfuse2` before 24.04). If on Ubuntu 24.04 it exits with a message about the
+sandbox ("The SUID sandbox helper binary was found, but is not configured correctly"), the AppImage cannot carry
+the AppArmor profile the .deb installs: use the .deb, or start the AppImage with `--no-sandbox`. The AppImage updates
+itself from the Releases tab: it checks a little after it starts and asks before restarting.
 
 ## Windows
 

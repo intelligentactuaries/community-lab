@@ -95,6 +95,12 @@ deb:
     - libsecret-1-0
   fpm:
     - "packaging/io.intelligentactuaries.communitylab.metainfo.xml=/usr/share/metainfo/io.intelligentactuaries.communitylab.metainfo.xml"
+    # Ubuntu 24.04 lets a program use unprivileged user namespaces (which Chromium's sandbox builds on) only when an
+    # AppArmor profile allows it; this one does, and nothing else (packaging/community-lab-ide.apparmor).
+    - "packaging/community-lab-ide.apparmor=/etc/apparmor.d/community-lab-ide"
+  # electron-builder's own install and remove steps, plus loading (and, on purge, unloading) that profile.
+  afterInstall: packaging/after-install.sh
+  afterRemove: packaging/after-remove.sh
 
 # ─── macOS ─────────────────────────────────────────────────────────────
 # Unsigned until there is an Apple Developer ID: the release workflow builds
