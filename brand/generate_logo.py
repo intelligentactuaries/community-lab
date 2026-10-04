@@ -38,7 +38,7 @@ TOKENS = {
     "bg":               "#191919",    # canvas background
     "fg":               "#FFFFFF",    # glyph fill
     "canvas":           1000,         # SVG viewBox is canvas x canvas (square)
-    "lockup_width_frac": 0.60,        # width of the whole "S0.1" relative to canvas
+    "lockup_width_frac": 0.60,        # width of the whole "C0.1" relative to canvas
     "subscript_scale":  0.30,         # subscript size relative to the main letter
     "subscript_drop":   0.10,         # subscript baseline drop, in main-em units
     "subscript_gap":    0.02,         # space between letter and subscript, main-em units
