@@ -63,6 +63,10 @@ jobs:
         working-directory: desktop
         run: |
           TARGET_OS=mac bash scripts/bundle-server.sh
+          # Apple Silicon runs no arm64 executable without a signature, and the engine sits in Resources/, where
+          # `codesign --deep` need not reach: sign it ad hoc here, before it is packaged.
+          codesign --force --sign - resources/server/community-lab-server
+          codesign --verify --verbose=2 resources/server/community-lab-server
           bun run build:main
 
       - name: Package Community Lab IDE.app (signing off)
