@@ -1,34 +1,43 @@
-// Bun API server: AI providers + streaming dialogue, Monte Carlo batches, and
-// (in production) the built client on the same origin.
+// Bun API server: AI providers and streaming dialogue, the worker pool's long
+// jobs (experiments, pooled exports, Monte Carlo batches), the workspace the
+// workbench edits, and (in production) the built client on the same origin.
 import { join } from 'node:path';
-import { EXCHANGE_SCHEMA, type ExperimentResult, MAX_EXPERIMENT_SEEDS, MAX_EXPERIMENT_YEARS, MAX_SEED_YEARS, type ParamPatch, parseDirective, parseExperimentSpec, seedYears } from '@scelo/core/exchange';
+import { EXCHANGE_SCHEMA, type ExperimentResult, MAX_EXPERIMENT_SEEDS, MAX_EXPERIMENT_YEARS, MAX_SEED_YEARS, type ParamPatch, parseDirective, parseExperimentSpec, seedYears } from '../shared/exchange';
 import { batchCsv, type BatchSummary } from '../sim/batch';
 import { METRICS } from '../sim/experiment';
 import type { Grouping } from '../sim/experience';
 import type { ScenarioParams } from '../sim/params';
 import { hash32 } from '../sim/rng';
-import { experimentExport } from '../shared/sceloExport';
+import { experimentExport } from '../shared/exports';
 import { TEMPLATES, TEMPLATE_BY_ID } from '../shared/templates';
 import { cacheClear, cacheGet, cachePut, getExperiment, getExport, listBatches, listExperiments } from './db';
 import { APP_VERSION, type Job, cancelJob, getJob, listJobs, startBatch, startExperiment, startPooledExport } from './jobs';
 import { router } from './llm/router';
 import type { CloudProvider, Message, ProviderPrefs } from './llm/types';
 import { pool } from './pool';
+import { workspaceRoutes } from './workspace';
 
-const PORT = Number(process.env.PORT ?? 3020);
+/** 3040 by default: Scelo IDE's bundled copy of Community Lab keeps 3020, so the two never meet on one port. */
+const PORT = Number(process.env.PORT ?? 3040);
 const HOST = process.env.HOST ?? '127.0.0.1';
 const STATIC_DIR = process.env.COMMUNITY_STATIC_DIR ?? '';
-/** The Scelo exchange protocol this server speaks (src/shared/exchange.ts). Scelo IDE adopts a running
- *  server only when its health names the app and this version. */
+/** The version of the data contract (src/shared/exchange.ts) this server speaks. */
 const EXCHANGE_VERSION = 1;
 
-// Who may call the API from a browser: Scelo IDE's renderer (scelo://app) and pages on this machine's
-// loopback (the dev pairs). Anything else gets no CORS headers, so its scripts cannot read a response, and
-// POSTs must be JSON, so a plain cross-site form cannot send one without a preflight that fails.
+// Who may call the API from a browser: pages on this machine's loopback (the IDE's own window, which is served from
+// this origin, and the dev pair's Vite page). Anything else gets no CORS headers, so its scripts cannot read a
+// response, and POSTs must be JSON, so a plain cross-site form cannot send one without a preflight that fails.
 const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 function allowedOrigin(origin: string | null): string | null {
   if (!origin) return null;
-  return origin === 'scelo://app' || LOCAL_ORIGIN.test(origin) ? origin : null;
+  return LOCAL_ORIGIN.test(origin) ? origin : null;
+}
+// And the name the request was addressed to must be this machine's loopback: a page on another site that has
+// pointed its own domain at 127.0.0.1 (DNS rebinding) is same-origin with itself and would pass a CORS check, but it
+// cannot make the browser send a loopback Host header.
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+function loopbackHost(req: Request): boolean {
+  return LOCAL_HOST.test(req.headers.get('host') ?? '');
 }
 function withCors(req: Request, res: Response): Response {
   const origin = allowedOrigin(req.headers.get('origin'));
@@ -49,7 +58,7 @@ function route(method: string, path: string, handler: Handler) {
 const json = (data: unknown, init: ResponseInit = {}) => new Response(JSON.stringify(data), { ...init, headers: { 'content-type': 'application/json', ...(init.headers || {}) } });
 const redact = (s: string) => s.replace(/sk-[A-Za-z0-9_-]{6,}/g, 'sk-…').replace(/AIza[A-Za-z0-9_-]{6,}/g, 'AIza…');
 
-route('GET', '/api/health', () => json({ ok: true, app: 'community-lab', exchange: EXCHANGE_VERSION, time: Date.now(), version: APP_VERSION }));
+route('GET', '/api/health', () => json({ ok: true, app: 'community-lab', edition: 'ide', exchange: EXCHANGE_VERSION, time: Date.now(), version: APP_VERSION }));
 route('GET', '/api/providers', () => json(router.info()));
 route('POST', '/api/providers', async (req) => {
   const body = (await req.json()) as { keys?: Partial<Record<CloudProvider, string | null>>; prefs?: Partial<ProviderPrefs>; refreshOllama?: boolean };
@@ -126,7 +135,7 @@ route('GET', '/api/batch/:id/csv', (_req, _url, p) => {
   return new Response(batchCsv(summary), { headers: { 'content-type': 'text/csv', 'content-disposition': `attachment; filename="community-batch-${p.id}.csv"` } });
 });
 
-// ── The Scelo exchange (@scelo/core/exchange): experiments, pooled exports, templates ──
+// ── The lab: experiments, pooled exports and templates (the data contract: src/shared/exchange.ts) ──
 const jobView = (j: Job) => ({ id: j.id, kind: j.kind, title: j.title, status: j.status, done: j.done, total: j.total, startedAt: j.startedAt, error: j.error, warnings: j.warnings });
 
 route('GET', '/api/exchange', () =>
@@ -152,7 +161,7 @@ route('GET', '/api/experiments/:id', (_req, _url, p) => {
   return saved ? json({ id: p.id, kind: 'experiment', title: saved.title, status: 'done', done: 0, total: 0, warnings: [], result: saved.result }) : json({ error: 'not found' }, { status: 404 });
 });
 route('DELETE', '/api/experiments/:id', (_req, _url, p) => json({ cancelled: cancelJob(p.id) }));
-/** The experiment as a Scelo dataset (runs and effects). */
+/** The experiment as an export (the runs, and the effects beside them). */
 route('GET', '/api/experiments/:id/export', (_req, _url, p) => {
   const j = getJob(p.id);
   const result = (j?.status === 'done' ? j.result : getExperiment(p.id)?.result) as ExperimentResult | undefined;
@@ -170,7 +179,7 @@ route('POST', '/api/exports', async (req) => {
   const group: Grouping = body.group === 'city' || body.group === 'settlement' || body.group === 'tier' ? body.group : 'none';
   // The base, its basis and its shocks are checked as a directive's would be.
   const outside = body.base !== undefined || body.mortality !== undefined || body.shocks !== undefined;
-  const check = outside ? parseDirective({ schema: EXCHANGE_SCHEMA, kind: 'community.directive', id: 'check', label: 'check', from: { app: 'scelo', appVersion: '0', createdAt: '' }, params: body.base, mortality: body.mortality, shocks: body.shocks }) : null;
+  const check = outside ? parseDirective({ schema: EXCHANGE_SCHEMA, kind: 'community.directive', id: 'check', label: 'check', from: { app: 'community-lab', appVersion: APP_VERSION, createdAt: '' }, params: body.base, mortality: body.mortality, shocks: body.shocks }) : null;
   if (check && !check.ok) return json({ error: 'invalid base', details: check.errors }, { status: 400 });
   const d = check?.ok ? check.value : null;
   return json(jobView(startPooledExport({ base: d?.params, mortality: d?.mortality, shocks: d?.shocks, seeds, years, ageWidth, group })));
@@ -182,6 +191,9 @@ route('GET', '/api/exports/:id', (_req, _url, p) => {
   return saved ? json({ id: p.id, kind: 'export', status: 'done', done: 0, total: 0, warnings: [], export: saved }) : json({ error: 'not found' }, { status: 404 });
 });
 route('DELETE', '/api/exports/:id', (_req, _url, p) => json({ cancelled: cancelJob(p.id) }));
+
+// ── The workspace the workbench edits (a folder on this machine) ──
+for (const r of workspaceRoutes) route(r.method, r.path, r.handler);
 
 async function serveStatic(url: URL): Promise<Response | null> {
   if (!STATIC_DIR) return null;
@@ -202,6 +214,7 @@ const server = Bun.serve({
   idleTimeout: 255,
   async fetch(req) {
     const url = new URL(req.url);
+    if (url.pathname.startsWith('/api/') && !loopbackHost(req)) return json({ error: 'requests must be addressed to this machine (localhost)' }, { status: 421 });
     if (req.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
       const origin = allowedOrigin(req.headers.get('origin'));
       if (!origin) return new Response(null, { status: 403 });
@@ -209,15 +222,15 @@ const server = Bun.serve({
         status: 204,
         headers: {
           'access-control-allow-origin': origin,
-          'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
+          'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
           'access-control-allow-headers': 'content-type',
           'access-control-max-age': '600',
           vary: 'origin',
         },
       });
     }
-    if (req.method === 'POST' && url.pathname.startsWith('/api/') && !(req.headers.get('content-type') ?? '').includes('application/json')) {
-      return withCors(req, json({ error: 'POST bodies must be application/json' }, { status: 415 }));
+    if ((req.method === 'POST' || req.method === 'PUT') && url.pathname.startsWith('/api/') && !(req.headers.get('content-type') ?? '').includes('application/json')) {
+      return withCors(req, json({ error: 'POST and PUT bodies must be application/json' }, { status: 415 }));
     }
     for (const r of routes) {
       if (r.method !== req.method) continue;

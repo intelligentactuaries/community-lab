@@ -18,7 +18,7 @@
 // observation (or were when they died or left) — the engine keeps no history
 // of a job or an income — and the exports say so.
 
-import type { TrueBasis } from '@scelo/core/exchange';
+import type { TrueBasis } from '../shared/exchange';
 import type { Ctx } from './ctx';
 import { MAX_AGE, dailyHazard, improvedQx, lifeExpectancy, qxFor } from './mortality';
 import { communityOfPerson } from './population';

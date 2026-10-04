@@ -1,15 +1,16 @@
-// Community Lab's exports in the Scelo exchange shape (@scelo/core/exchange):
-// the province's data as Scelo datasets, each with its data dictionary, its
-// provenance, and — for synthetic experience — the true basis it was made on.
+// Community Lab's exports (the data contract, ./exchange.ts): the province's
+// data as plain tables, each with its data dictionary, its provenance, and,
+// for synthetic experience, the true basis it was made on.
 // Used by the browser for the province on screen and by the server for pooled
 // Monte Carlo exports, so both send exactly the same columns.
 //
-// Column names follow Scelo's detectors, so Tools routes the data by itself:
+// Column names are the ones actuarial tools look for (and that Scelo IDE's
+// detectors route by), so the data is ready to fit:
 //   experience     year · age · sex · deaths · person_years  → Lee–Carter, CBD, life tables, A/E
 //   person-years   death_event (0/1)                          → GBM and SHAP: who dies, and why
 //   model points   age_at_entry · sum_assured · policy_term   → lifelib BasicTerm, IFRS 17, Solvency II
-// `person_years` (not `exposure`, which Scelo reads as insured value for
-// CLIMADA) is the time at risk.
+// `person_years` (not `exposure`, which catastrophe tools read as insured
+// value) is the time at risk.
 
 import {
   type CommunityExport,
@@ -19,7 +20,7 @@ import {
   type ExperimentResult,
   type Provenance,
   type TrueBasis,
-} from '@scelo/core/exchange';
+} from './exchange';
 import pkg from '../../package.json';
 import type { ExperienceCell, ModelPointRow, PersonYearRow } from '../sim/experience';
 
@@ -83,7 +84,7 @@ export function experienceExport(cells: ExperienceCell[], o: { truth: TrueBasis;
     title: `Unity Province · mortality experience${seeds > 1 ? ` · ${seeds} seeds pooled` : ''}`,
     summary:
       `Deaths and person-years by calendar year, ${banded ? `${o.ageWidth}-year age band` : 'single age'} and sex, ${years[0]}–${years[years.length - 1]}, rebuilt person by person from the simulated province${seeds > 1 ? ` and pooled over ${seeds} seeds of the same basis` : ''}. ` +
-      `The true basis travels with it (qx_basis, and the full table in the truth): fit a table in Scelo (Lee–Carter, CBD, a life table), then score it against the answer. ` +
+      `The true basis travels with it (qx_basis, and the full table in the truth): fit a table to it (Lee–Carter, CBD, a life table, in R, Python or Scelo IDE), then score it against the answer. ` +
       'Calendar years the province lived for less than half of are left out: a period model reads every year as a whole one.' +
       (sparse ? ` With ${D} deaths most cells are empty; pool more seeds (Community Lab's Monte Carlo export) before fitting a period model.` : ''),
     provenance: o.provenance,
@@ -160,7 +161,7 @@ export function personYearsExport(rows: PersonYearRow[], o: { truth: TrueBasis; 
     title: 'Unity Province · who dies: the person-year panel',
     summary:
       `Every resident, year by year: ${panel.length.toLocaleString('en-GB')} person-years with ${D} deaths and the person's circumstances. ` +
-      'A classifier on death_event (Scelo\'s GBM, then SHAP) should rediscover what the simulation knows drives risk (age, poverty, HIV, frailty: see the true basis); a Poisson GLM with log(person_years) as the offset estimates it properly. ' +
+      'A classifier on death_event (a gradient-boosted model, then SHAP) should rediscover what the simulation knows drives risk (age, poverty, HIV, frailty: see the true basis); a Poisson GLM with log(person_years) as the offset estimates it properly. ' +
       'The deaths register, with causes, travels as a second table (it is kept out of the panel: a cause would give the outcome away).',
     provenance: o.provenance,
     tables: [
@@ -213,7 +214,7 @@ export function modelPointsExport(points: ModelPointRow[], o: { provenance: Prov
     title: `Unity Province · burial society in force at ${o.asAt}`,
     summary:
       `The province's burial society as lifelib model points: ${points.length} covered lives and covers, R${Math.round(sa).toLocaleString('en-GB')} sum assured. ` +
-      'Funeral cover is whole of life, written as a term to age 100; life cover runs to 65. Value it with lifelib in Scelo (BasicTerm, IFRS 17, Solvency II) and compare with Community Lab\'s own pricing in its Actuarial workbench — two engines, one book.',
+      'Funeral cover is whole of life, written as a term to age 100; life cover runs to 65. Value it with lifelib (BasicTerm, IFRS 17, Solvency II) or any projection engine and compare with Community Lab\'s own pricing in its Actuarial workbench — two engines, one book.',
     provenance: o.provenance,
     tables: [
       {

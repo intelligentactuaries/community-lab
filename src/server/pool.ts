@@ -118,7 +118,7 @@ export class WorkerPool {
 }
 
 /**
- * Half the machine's threads, at most eight: Community Lab runs inside an IDE beside an editor, a browser and the
- * swarm, and a province-year holds a few hundred megabytes while it runs. COMMUNITY_WORKERS overrides it.
+ * Half the machine's threads, at most eight: the IDE shares the machine with its own window, an editor, a browser and
+ * a local model, and a province-year holds a few hundred megabytes while it runs. COMMUNITY_WORKERS overrides it.
  */
 export const pool = new WorkerPool(Math.max(1, Number(process.env.COMMUNITY_WORKERS) || Math.min(8, Math.floor(availableParallelism() / 2))));

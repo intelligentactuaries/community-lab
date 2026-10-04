@@ -1,8 +1,8 @@
 // Theme handler. `ia.theme` = "light" | "dark" | "system" for a static view;
 // absent = "sim": the theme follows the simulation's daylight (the default),
-// blending through dawn and dusk via the --night variable. Inside Scelo IDE,
-// "system" means the IDE's theme: it posts `{ type: "ia:theme", theme }` into
-// this frame, as it does into the swarm's.
+// blending through dawn and dusk via the --night variable. Embedded in a page
+// that posts `{ type: "ia:theme", theme }` (the Intelligent Actuaries apps
+// do), "system" means that page's theme.
 import { useCallback, useEffect, useState } from 'react';
 
 export type ThemeChoice = 'sim' | 'system' | 'light' | 'dark';
@@ -10,7 +10,7 @@ export type ResolvedTheme = 'light' | 'dark';
 const KEY = 'ia.theme';
 
 let cached: ThemeChoice = 'sim';
-/** The embedding window's theme (Scelo IDE), when there is one: it stands in for the OS under "system". */
+/** The embedding window's theme, when there is one: it stands in for the OS under "system". */
 let hostTheme: ResolvedTheme | null = null;
 
 /** Whether the day-night driver owns the theme (checked every frame; no storage read). */

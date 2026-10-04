@@ -137,6 +137,8 @@ export function MapCanvas() {
     controlsRef.current = controls;
     const resize = () => {
       const r = host.getBoundingClientRect();
+      // Hidden (the workbench is in front): keep the last size rather than a zero-sized camera.
+      if (r.width < 2 || r.height < 2) return;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = Math.max(1, Math.floor(r.width * dpr));
       canvas.height = Math.max(1, Math.floor(r.height * dpr));
@@ -154,6 +156,18 @@ export function MapCanvas() {
       store.advanceFrame(dt);
       simMinAccum += store.sim.world.minute - before;
       dialogueTick();
+      // The workbench is in front: the province keeps its clock, but nothing is drawn (and the theme holds still,
+      // so the editor does not flip between day and night under the cursor).
+      if (store.view === 'workbench') {
+        if (now - lastReport > 1000) {
+          store.achieved = simMinAccum / ((now - lastReport) / 1000);
+          simMinAccum = 0;
+          lastReport = now;
+        }
+        store.maybeTick(now);
+        raf = requestAnimationFrame(frame);
+        return;
+      }
       const cam: Camera = store.camera;
       controls.frame(cam, store.viewport.h, dt);
       // Automation / console hook, beside the store (see main.tsx): the controls, once the hook exists.

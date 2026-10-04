@@ -4,13 +4,13 @@
 //   batches          the Monte Carlo tab's seeds (same rows as before, no longer blocking)
 // A job is polled by id; finished experiments and exports are kept in sqlite.
 
-import type { CommunityExport, ExperimentResult, ExperimentSpec, MortalityOverride, ParamPatch, Shock, TrueBasis } from '@scelo/core/exchange';
+import type { CommunityExport, ExperimentResult, ExperimentSpec, MortalityOverride, ParamPatch, Shock, TrueBasis } from '../shared/exchange';
 import { type BatchRow, type BatchSummary, aggregate } from '../sim/batch';
 import { type ArmRun, experimentSeeds, summariseExperiment } from '../sim/experiment';
 import { type ExperienceCell, type Grouping, poolCells } from '../sim/experience';
 import type { ScenarioParams } from '../sim/params';
 import { applyPatch, changedFromDefaults } from '../sim/patch';
-import { APP_VERSION, experienceExport, provenanceFor } from '../shared/sceloExport';
+import { APP_VERSION, experienceExport, provenanceFor } from '../shared/exports';
 import { saveBatch, saveExperiment, saveExport } from './db';
 import { pool } from './pool';
 
@@ -96,7 +96,7 @@ export function startExperiment(spec: ExperimentSpec): Job {
 
 export interface PooledExportRequest {
   base?: ParamPatch;
-  /** The basis and shocks the province lives under, when it lives under some (a basis Scelo sent). */
+  /** The basis and shocks the province lives under, when it lives under some (a supplied basis, a stress). */
   mortality?: MortalityOverride;
   shocks?: Shock[];
   seeds: number;

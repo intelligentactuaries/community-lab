@@ -34,7 +34,11 @@ function loadParams(): Partial<ScenarioParams> {
     return {};
   }
 }
+/** The IDE's two views: the province itself, and the workbench (files, editor, console). */
+export type View = 'province' | 'workbench';
+
 interface UiPrefs {
+  view?: View;
   aiMode?: AiMode;
   sidebarOpen?: boolean;
   inspectorOpen?: boolean;
@@ -81,6 +85,8 @@ class SimStore {
   legendOpen = false;
   /** Zooming past the bare floor turns the map into a 3D scene (render3d/). */
   view3d = true;
+  /** Which of the IDE's views is in front. The province keeps its clock either way. */
+  view: View = 'province';
   /** A short notice shown over the map for a few seconds (a controller connected, and so on). */
   notice: { text: string; at: number } | null = null;
   /** Real-time factor actually achieved last second (for the HUD). */
@@ -101,6 +107,7 @@ class SimStore {
     if (typeof ui.sidebarOpen === 'boolean') this.sidebarOpen = ui.sidebarOpen;
     if (typeof ui.inspectorOpen === 'boolean') this.inspectorOpen = ui.inspectorOpen;
     if (typeof ui.view3d === 'boolean') this.view3d = ui.view3d;
+    if (ui.view === 'province' || ui.view === 'workbench') this.view = ui.view;
     setMaxZoom(this.view3d ? MAX_ZOOM_3D : MAX_ZOOM);
     this.sim = new Simulation(this.params);
     this.startMs = parseStartDate(this.params.startDate);
@@ -219,7 +226,7 @@ class SimStore {
     try {
       localStorage.setItem(
         LS_UI,
-        JSON.stringify({ aiMode: this.aiMode, sidebarOpen: this.sidebarOpen, inspectorOpen: this.inspectorOpen, view3d: this.view3d } satisfies UiPrefs),
+        JSON.stringify({ view: this.view, aiMode: this.aiMode, sidebarOpen: this.sidebarOpen, inspectorOpen: this.inspectorOpen, view3d: this.view3d } satisfies UiPrefs),
       );
     } catch {
       /* quota / private mode */
@@ -350,6 +357,12 @@ class SimStore {
   }
   setDrawerFull(v: boolean): void {
     this.drawerFull = v;
+    this.bump();
+  }
+  setView(v: View): void {
+    if (this.view === v) return;
+    this.view = v;
+    this.saveUi();
     this.bump();
   }
   set<K extends 'sidebarOpen' | 'inspectorOpen' | 'settingsOpen' | 'helpOpen' | 'legendOpen' | 'view3d'>(k: K, v: boolean): void {

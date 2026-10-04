@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { SPEED_PRESETS } from '../sim/params';
 import { AnalyticsDrawer } from './components/AnalyticsDrawer';
 import { HelpOverlay } from './components/HelpOverlay';
@@ -14,6 +14,11 @@ import { api, syncProvidersToServer, type ProvidersInfo } from './lib/api';
 import { navState } from './lib/controls';
 import { aiStatus } from './lib/dialogue';
 import { store, useStore } from './lib/simStore';
+import { desktop } from './workbench/desktop';
+
+// The workbench (Monaco, the script runtime) loads the first time it is opened.
+const Workbench = lazy(() => import('./workbench/Workbench'));
+const workbenchCommands = () => import('./workbench/commands');
 
 export function App() {
   const st = useStore();
@@ -29,10 +34,25 @@ export function App() {
       clearInterval(t);
     };
   }, []);
+  // The desktop app's menus and accelerators arrive as commands.
+  useEffect(() => {
+    const d = desktop();
+    if (!d) return;
+    return d.onCommand((cmd, arg) => void workbenchCommands().then((m) => m.command(cmd, arg)));
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Ctrl/Cmd+1 and +2 switch the views from anywhere.
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === '1' || e.key === '2')) {
+        e.preventDefault();
+        store.setView(e.key === '1' ? 'province' : 'workbench');
+        return;
+      }
+      // The province's own keys belong to the province view; the workbench has an editor's.
+      if (store.view !== 'province') return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       // While a mouse button flies the 3D view its keys are the viewport's (F is "down", as in Unreal), not these.
       if (navState.flying && e.key !== 'Escape') return;
       if (e.key === ' ') {
@@ -59,11 +79,13 @@ export function App() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [st.settingsOpen, st.helpOpen, st.sceneOpen, st.drawerTab, st.followId, st.drill, st.selection, st.sidebarOpen, st.inspectorOpen, st.legendOpen]);
+  const bench = st.view === 'workbench';
   return (
-    <div className="app">
+    <div className={`app ${bench ? 'in-workbench' : ''}`}>
       <TopBar info={info} aiBusy={aiStatus.inflight > 0} />
-      <SceneControls />
-      <div className={`body ${st.sidebarOpen ? '' : 'no-side'} ${st.inspectorOpen ? '' : 'no-insp'}`}>
+      {!bench && <SceneControls />}
+      {/* The province stays mounted under the workbench: its clock keeps time and its 3D scene keeps its state. */}
+      <div className={`body ${st.sidebarOpen ? '' : 'no-side'} ${st.inspectorOpen ? '' : 'no-insp'} ${bench ? 'behind' : ''}`} aria-hidden={bench}>
         {/* Panel toggles live under the header, pinned to the top corner of the
             panel each one controls (and staying put when that panel closes). */}
         <button className="icon panel-toggle left" title={`${st.sidebarOpen ? 'Hide' : 'Show'} the scenario & lists panel ([)`} aria-label="Toggle the left panel" aria-expanded={st.sidebarOpen} onClick={() => store.set('sidebarOpen', !st.sidebarOpen)}>
@@ -80,6 +102,11 @@ export function App() {
         </div>
         <Inspector />
       </div>
+      {bench && (
+        <Suspense fallback={<div className="workbench wb-loading muted">Opening the workbench…</div>}>
+          <Workbench />
+        </Suspense>
+      )}
       <SettingsModal info={info} onInfo={setInfo} />
       <HelpOverlay />
     </div>

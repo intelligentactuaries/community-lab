@@ -1,5 +1,7 @@
 // bun:sqlite — a cache of generated dialogue keyed by prompt hash + salt, and
-// a table of saved batch runs. Lives under ./data (COMMUNITY_DATA_DIR).
+// the lab's kept runs (batches, experiments, pooled exports). Lives under
+// ./data, or COMMUNITY_DATA_DIR (the desktop IDE points it at the user's data
+// folder).
 import { Database } from 'bun:sqlite';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -39,7 +41,7 @@ export function listBatches(): Array<{ id: string; created_at: number; params: u
   return rows.map((r) => ({ id: r.id, created_at: r.created_at, params: JSON.parse(r.params), summary: JSON.parse(r.summary) }));
 }
 
-// ── Experiments and pooled exports (the Scelo exchange: jobs.ts) ──
+// ── Experiments and pooled exports (jobs.ts) ──
 
 export function saveExperiment(id: string, title: string, spec: unknown, result: unknown): void {
   db.query('INSERT OR REPLACE INTO experiments (id, created_at, title, spec, result) VALUES (?, ?, ?, ?, ?)').run(id, Date.now(), title, JSON.stringify(spec), JSON.stringify(result));

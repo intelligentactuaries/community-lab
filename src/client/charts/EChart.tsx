@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts/core';
 import { BarChart, CustomChart, GraphChart, LineChart, PieChart, SankeyChart, ScatterChart } from 'echarts/charts';
-import { GridComponent, GraphicComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, TooltipComponent, DataZoomComponent, VisualMapComponent } from 'echarts/components';
+import { GridComponent, GraphicComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, TitleComponent, TooltipComponent, DataZoomComponent, VisualMapComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 import { useTheme } from '../lib/theme';
 
-echarts.use([GraphChart, BarChart, LineChart, PieChart, ScatterChart, SankeyChart, CustomChart, GridComponent, GraphicComponent, LegendComponent, TooltipComponent, MarkLineComponent, MarkPointComponent, MarkAreaComponent, DataZoomComponent, VisualMapComponent, CanvasRenderer]);
+echarts.use([GraphChart, BarChart, LineChart, PieChart, ScatterChart, SankeyChart, CustomChart, GridComponent, GraphicComponent, LegendComponent, TitleComponent, TooltipComponent, MarkLineComponent, MarkPointComponent, MarkAreaComponent, DataZoomComponent, VisualMapComponent, CanvasRenderer]);
 
 /** The only chart component (house rule from apps/web/AGENTS.md). */
 export function EChart({ option, className, height }: { option: Record<string, unknown>; className?: string; height?: number }) {

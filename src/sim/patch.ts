@@ -4,7 +4,7 @@
 // the seeds, so arms share random numbers), nor the outside inputs, which
 // travel in their own fields (mortalityOverride, shocks).
 
-import type { ParamPatch, ParamValue } from '@scelo/core/exchange';
+import type { ParamPatch, ParamValue } from '../shared/exchange';
 import { MORTALITY_PRESETS } from './mortality';
 import { DEFAULT_PARAMS, type EducationMix, type ScenarioParams } from './params';
 
@@ -59,7 +59,8 @@ export const PARAM_RANGES: Partial<Record<keyof ScenarioParams, [number, number]
   councilStipend: [0, 50_000],
 };
 
-const CHOICES: Partial<Record<keyof ScenarioParams, readonly string[]>> = {
+/** The values a string parameter may take (the Scenario panel's selects). */
+export const CHOICES: Partial<Record<keyof ScenarioParams, readonly string[]>> = {
   ageProfile: ['young', 'balanced', 'ageing'],
   healthProfile: ['sa-rural', 'sa-urban', 'developed'],
   climate: ['highveld', 'western-cape', 'kzn-coast', 'temperate-north'],
@@ -68,9 +69,10 @@ const CHOICES: Partial<Record<keyof ScenarioParams, readonly string[]>> = {
 };
 
 /** Never through a patch: the seed belongs to the experiment, the rest have their own fields or are bookkeeping. */
-const NOT_PATCHABLE = new Set<string>(['seed', 'mortalityOverride', 'shocks', 'journalRetentionMonths', 'tiers']);
+export const NOT_PATCHABLE = new Set<string>(['seed', 'mortalityOverride', 'shocks', 'journalRetentionMonths', 'tiers']);
 
-const TIER_SHARES = new Set(['carOwnership', 'secondCarShare', 'funeralCoverShare', 'lifeCoverShare', 'medicalAidShare', 'unemployment']);
+/** The settlement-tier shares a patch may set (tiers.<tier>.<share>). */
+export const TIER_SHARES = new Set(['carOwnership', 'secondCarShare', 'funeralCoverShare', 'lifeCoverShare', 'medicalAidShare', 'unemployment']);
 
 export interface PatchResult {
   params: Partial<ScenarioParams>;

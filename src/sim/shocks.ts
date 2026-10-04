@@ -18,7 +18,7 @@
 // μ_supplied(x) / μ_preset(x), age by age and sex by sex. Total mortality then
 // follows the supplied table in expectation.
 
-import type { MortalityOverride, Shock } from '@scelo/core/exchange';
+import type { MortalityOverride, Shock } from '../shared/exchange';
 import type { Ctx } from './ctx';
 import { MAX_AGE, type QxTable } from './mortality';
 import type { Person, Sex } from './types';

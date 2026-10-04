@@ -3,7 +3,7 @@
 // it — an experiment arm's indicators, a Monte Carlo batch row, or the run's
 // experience cells for a pooled export.
 
-import type { ExperimentArm, ExperimentSpec } from '@scelo/core/exchange';
+import type { ExperimentArm, ExperimentSpec } from '../shared/exchange';
 import { summariseRun } from '../sim/batch';
 import { alivePeople } from '../sim/ctx';
 import { Simulation } from '../sim/engine';

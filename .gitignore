@@ -6,3 +6,11 @@ data/
 
 # Python bytecode (the Blender scripts)
 __pycache__/
+
+# The desktop app's build output and bundled server (desktop/scripts/bundle-server.sh)
+desktop/dist/
+desktop/build/
+desktop/resources/server/
+desktop/node_modules/
+desktop/resources/license.txt
+dist-embed/

@@ -25,7 +25,7 @@ import {
   EXCHANGE_SCHEMA,
   distribution,
   pairedEffect,
-} from '@scelo/core/exchange';
+} from '../shared/exchange';
 import { alivePeople } from './ctx';
 import { Simulation } from './engine';
 import { assumptionsHash, type ScenarioParams } from './params';

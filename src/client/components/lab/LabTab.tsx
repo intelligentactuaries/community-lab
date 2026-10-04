@@ -1,21 +1,23 @@
 // The policy & stress lab: ask the province a question as an experiment —
-// a template for actuaries, governments or social developers, or a basis or
-// stress Scelo sent — run every arm on the same seeds on the server, read the
-// effects with their intervals, and hand the result on: to Scelo as data, or
-// to the swarm's council with the province's residents as its society.
+// a template for actuaries, governments or social developers, an experiment
+// file from the workspace, or a supplied basis or stress — run every arm on
+// the same seeds on the server's worker pool, read the effects with their
+// intervals, and keep the result: in the workspace (CSV, JSON and the spec it
+// was run from) or as a download.
 
-import { MAX_SEED_YEARS, type MetricDef, seedYears, tableCsv } from '@scelo/core/exchange';
-import { useEffect } from 'react';
+import { MAX_SEED_YEARS, type MetricDef, seedYears, tableCsv } from '../../../shared/exchange';
+import { useEffect, useState } from 'react';
 import { DEFAULT_PARAMS } from '../../../sim/params';
 import { shockLabel } from '../../../sim/shocks';
-import { experimentExport } from '../../../shared/sceloExport';
+import { experimentExport } from '../../../shared/exports';
 import { TEMPLATES } from '../../../shared/templates';
 import { forestOption, type ForestRow } from '../../charts/lab';
 import { EChart } from '../../charts/EChart';
 import { Tbl, Viz } from '../../charts/helpers';
 import { chartTheme } from '../../charts/theme';
 import { lab, useLab } from '../../lib/lab';
-import { bridge, useBridge } from '../../lib/sceloBridge';
+import { saveExperimentToWorkspace, useWorkspace } from '../../workbench/workspace';
+import { downloadText } from './ExportsTab';
 
 const AUDIENCES: Array<{ id: 'actuarial' | 'government' | 'social'; label: string }> = [
   { id: 'actuarial', label: 'Actuaries' },
@@ -47,7 +49,8 @@ function signed(v: number, unit: string): string {
 
 export function LabTab() {
   const L = useLab();
-  const B = useBridge();
+  const ws = useWorkspace();
+  const [kept, setKept] = useState<{ text: string; err?: boolean } | null>(null);
   const th = chartTheme();
   const d = L.draft;
   useEffect(() => {
@@ -75,23 +78,23 @@ export function LabTab() {
           .filter((x): x is ForestRow => x !== null),
       )
     : [];
-  const send = (to: 'soft-data' | 'workspace') => {
-    if (!r) return;
-    bridge.send(experimentExport(r), to);
-    bridge.fact(`community:experiment:${r.id}`, `Community Lab · ${r.spec.title}`, `${r.spec.seeds} seeds × ${r.spec.years} years, every arm paired with the baseline`);
-  };
   const download = () => {
     if (!r) return;
     const e = experimentExport(r);
-    const blob = new Blob([tableCsv(e.tables[0])], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `community-experiment-${r.id}.csv`;
-    a.click();
+    downloadText(`community-experiment-${r.id}.csv`, tableCsv(e.tables[0]), 'text/csv');
+  };
+  const keep = async () => {
+    if (!r) return;
+    try {
+      const where = await saveExperimentToWorkspace(r, L.draft.from);
+      setKept({ text: `Saved to ${where} in the workspace: the runs as CSV, the effects, the result as JSON and the spec it was run from.` });
+    } catch (e) {
+      setKept({ text: e instanceof Error ? e.message : String(e), err: true });
+    }
   };
   return (
     <>
-      <Viz title="Ask the province a question" note="a template, or a basis or stress from Scelo" wide>
+      <Viz title="Ask the province a question" note="a template, or an experiment file from the workspace" wide>
         {AUDIENCES.map((au) => (
           <div key={au.id} className="lab-audience">
             <span className="panel-label">{au.label}</span>
@@ -104,7 +107,7 @@ export function LabTab() {
             </div>
           </div>
         ))}
-        {d.fromScelo && <div className="small lab-from">From Scelo: {d.fromScelo}</div>}
+        {d.from && <div className="small lab-from">From {d.from}</div>}
       </Viz>
       <Viz title={d.title || 'The experiment'} note={`${runs} runs of ${d.years} years`} wide>
         <label className="lab-field">
@@ -214,42 +217,17 @@ export function LabTab() {
         </Viz>
       )}
       {r && (
-        <Viz title="Hand it on" note={B.connected ? 'to Scelo and the swarm' : 'download, or open Community Lab from Scelo IDE'} wide>
+        <Viz title="Keep it" note={ws.root ? 'in the workspace, or as a download' : 'as a download; open a workspace to keep it with your files'} wide>
           <div className="row wrap">
-            {B.connected && (
-              <button type="button" className="primary" onClick={() => send('soft-data')} title="The runs (a row per seed and arm) become Scelo's dataset; the effects travel with them">
-                Send to Scelo
-              </button>
-            )}
-            {B.connected && B.canSaveToWorkspace && (
-              <button type="button" onClick={() => send('workspace')} title="CSV files, a README and the experiment's JSON in the open workspace, for Python and R">
+            {ws.root && (
+              <button type="button" className="primary" onClick={() => void keep()} title="The runs (a row per seed and arm) and the effects as CSV, the whole result as JSON, and the spec it was run from as an experiment file">
                 Save to workspace
               </button>
             )}
-            <button type="button" className="ghost" onClick={download}>Download CSV</button>
-            {B.swarmApi && (
-              <button type="button" onClick={() => void lab.askCouncil(B.swarmApi as string)} disabled={L.council?.status === 'running'} title="The swarm's council weighs this evidence; the province's own residents react as its society">
-                Ask the council
-              </button>
-            )}
+            <button type="button" className={ws.root ? 'ghost' : ''} onClick={download}>Download CSV</button>
+            <button type="button" className="ghost" onClick={() => r && downloadText(`community-experiment-${r.id}.json`, JSON.stringify(r, null, 2), 'application/json')}>JSON</button>
           </div>
-          {L.council && (
-            <div className="lab-council">
-              <div className={`small ${L.council.status === 'error' ? 'err' : ''}`}>{L.council.message}</div>
-              {L.council.summary && (
-                <div className="small">
-                  Trust the evidence <b>{Math.round(L.council.summary.trust)}%</b> · distrust <b>{Math.round(L.council.summary.distrust)}%</b> · uncertain <b>{Math.round(L.council.summary.uncertain)}%</b>
-                  {L.council.summary.risks.length > 0 && <div className="muted">Risks raised: {L.council.summary.risks.join(' · ')}</div>}
-                  {L.council.summary.society && <div className="muted">The residents: {L.council.summary.society}</div>}
-                </div>
-              )}
-              {L.council.runId && B.connected && (
-                <button type="button" className="ghost" onClick={() => bridge.openSwarm(L.council?.runId ?? undefined)}>
-                  Open the deliberation in the swarm
-                </button>
-              )}
-            </div>
-          )}
+          {kept && <div className={`small ${kept.err ? 'err' : 'muted'}`}>{kept.text}</div>}
         </Viz>
       )}
       <Viz title="Recent experiments" note="kept on the server" empty={!L.recent.length && 'Experiments you run are kept here.'}>

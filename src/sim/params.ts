@@ -3,7 +3,7 @@
 // never hard-codes a rate that lives in this file. docs/ASSUMPTIONS.md lists
 // the provenance of every default.
 
-import type { MortalityOverride, Shock } from '@scelo/core/exchange';
+import type { MortalityOverride, Shock } from '../shared/exchange';
 import { hash32 } from './rng';
 import type { Tier } from './types';
 

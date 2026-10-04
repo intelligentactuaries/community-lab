@@ -5,7 +5,7 @@
 // scripts/exchange-check.ts, which needs minutes on many cores.
 
 import { describe, expect, test } from 'bun:test';
-import { parseCommunityExport, parseExperimentSpec } from '@scelo/core/exchange';
+import { parseCommunityExport, parseExperimentSpec } from '../src/shared/exchange';
 import { Simulation } from '../src/sim/engine';
 import { experienceCells, modelPointRows, observedYears, personYearRows, trueBasis } from '../src/sim/experience';
 import { METRICS, armParams, indicators, summariseExperiment, type ArmRun } from '../src/sim/experiment';
@@ -13,7 +13,7 @@ import { buildQxTable, presetById } from '../src/sim/mortality';
 import { DEFAULT_PARAMS, assumptionsHash, basisHash, mergeParams } from '../src/sim/params';
 import { applyPatch, changedFromDefaults } from '../src/sim/patch';
 import { activeShocks, forceRatios, suppliedTable } from '../src/sim/shocks';
-import { experienceExport, modelPointsExport, personYearsExport, provenanceFor } from '../src/shared/sceloExport';
+import { experienceExport, modelPointsExport, personYearsExport, provenanceFor } from '../src/shared/exports';
 import { TEMPLATES } from '../src/shared/templates';
 
 describe('patches from outside', () => {

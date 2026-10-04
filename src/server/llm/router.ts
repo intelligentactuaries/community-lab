@@ -30,8 +30,9 @@ class LLMRouter {
 
   async init(): Promise<void> {
     await this.refreshOllama();
-    // Load the model into memory now, so the first conversation does not wait. Scelo IDE starts this server
-    // with every launch, opened or not, and sets COMMUNITY_WARM_OLLAMA=0: there the model loads on first use.
+    // Load the model into memory now, so the first conversation does not wait. The desktop IDE sets
+    // COMMUNITY_WARM_OLLAMA=0: a local model can hold most of a laptop GPU's memory (gpt-oss:20b about 7 GB), and the
+    // 3D view needs some of it, so there the model loads on the first conversation instead.
     if (this.ollamaSelected && process.env.COMMUNITY_WARM_OLLAMA !== '0') void warmOllama(this.ollamaSelected);
   }
 

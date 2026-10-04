@@ -15,7 +15,7 @@ import { baseOption, chartTheme } from '../charts/theme';
 import { FinanceWorkspace } from './finance/FinanceWorkspace';
 import { ActuarialWorkspace } from './actuarial/ActuarialWorkspace';
 import { LabTab } from './lab/LabTab';
-import { SceloTab } from './lab/SceloTab';
+import { ExportsTab } from './lab/ExportsTab';
 import { pyramid } from '../lib/analytics';
 import { api } from '../lib/api';
 import { store, useStore, type AnalyticsScope } from '../lib/simStore';
@@ -67,7 +67,7 @@ function ScopeNote({ what }: { what: string }) {
 function ScopePicker({ tab }: { tab: string }) {
   const st = useStore();
   const w = st.sim.world;
-  if (['economy', 'finance', 'weather', 'montecarlo', 'basis', 'lab', 'scelo'].includes(tab)) return null;
+  if (['economy', 'finance', 'weather', 'montecarlo', 'basis', 'lab', 'exports'].includes(tab)) return null;
   const s = st.analyticsScope;
   const enc = s.kind === 'all' ? 'all' : s.kind === 'city' ? `t:${s.id}` : s.kind === 'community' ? `c:${s.id}` : s.kind === 'household' ? `h:${s.id}` : `p:${s.id}`;
   const hhs = Object.values(w.households).filter((h) => !h.dissolvedDay && h.memberIds.length).sort((a, b) => a.name.localeCompare(b.name));
@@ -134,7 +134,7 @@ const TABS: Array<{ id: string; label: string }> = [
   { id: 'montecarlo', label: 'Monte Carlo' },
   { id: 'lab', label: 'Policy & stress lab' },
   { id: 'basis', label: 'Basis' },
-  { id: 'scelo', label: 'Scelo exchange' },
+  { id: 'exports', label: 'Exports' },
 ];
 
 /** How long the slide-down lasts; must match @keyframes drawerDown in styles.css. */
@@ -197,7 +197,7 @@ export function AnalyticsDrawer() {
           {tab === 'montecarlo' && <MonteCarloTab />}
           {tab === 'lab' && <LabTab />}
           {tab === 'basis' && <BasisTab />}
-          {tab === 'scelo' && <SceloTab />}
+          {tab === 'exports' && <ExportsTab />}
         </CardGrid>
       )}
     </div>

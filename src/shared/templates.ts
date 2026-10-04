@@ -1,14 +1,16 @@
 // Ready-made experiments: the questions each audience brings to a province,
 // written as arms against the baseline. The experiment lab offers them, the
-// server lists them (GET /api/templates) for Scelo and the swarm, and every
-// number in them is a stated assumption a user can change before running.
+// server lists them (GET /api/exchange, GET /api/templates/:id) for scripts
+// and other tools, the workbench writes them out as experiment files, and
+// every number in them is a stated assumption a user can change before
+// running.
 //
 // The stresses follow the standards they are named after where one exists
 // (SAM's life underwriting module: mortality +15% on every age, a catastrophe
 // of 1.5 additional deaths per 1,000 lives in a year); the policy arms change
 // one lever each, so an effect has one cause.
 
-import type { Audience, ExperimentSpec } from '@scelo/core/exchange';
+import type { Audience, ExperimentSpec } from './exchange';
 import { DEFAULT_PARAMS } from '../sim/params';
 
 export interface ExperimentTemplate {
