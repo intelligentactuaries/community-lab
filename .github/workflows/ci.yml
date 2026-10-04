@@ -12,6 +12,10 @@ jobs:
   check:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    env:
+      # The client build (Vite: Monaco, three.js, source maps) peaks near 3.7 GB; Node's default heap on a 7 GB
+      # runner is smaller, and macos-14 ran out of it.
+      NODE_OPTIONS: --max-old-space-size=6144
     steps:
       - uses: actions/checkout@v4
 
