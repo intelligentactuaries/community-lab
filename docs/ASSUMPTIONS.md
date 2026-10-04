@@ -68,12 +68,24 @@ in South Africa, HIV (D,E,F) — and senescent Gompertz mortality (G,H).
   directly — `tableShare(age)`: 0.85 under 15, 0.90 at 15–44, 0.88 at 45–54,
   0.78 at 55–64, 0.70 at 65–74, 0.50 at 75–84, 0.45 at 85+ — times a global
   factor `MULTIPLIER_NORMALISER` = 0.9.
-* **Calibration result** under the default basis: 24 fresh seeds × 20 years
-  gave 237 deaths against 236.5 expected on 23,326 person-years (**A/E 1.00**;
-  31 % of deaths from illness episodes), and 16 seeds × 30 years gave a flat
-  profile by band — 35–44: 0.93, 45–54: 1.03, 55–64: 0.92, 65–74: 1.00,
-  75–84: 1.00, 85+: 0.97 (overall 0.96). A single run's A/E is experience and
-  is reported with a Poisson 95 % interval. Re-check after touching any of
+* **Calibration result.** These constants were fitted when the community was a
+  single village of about fifty people: 24 fresh seeds × 20 years then gave 237
+  deaths against 236.5 expected on 23,326 person-years (A/E 1.00; 31 % of
+  deaths from illness episodes), and 16 seeds × 30 years a flat profile by band
+  (35–44: 0.93, 45–54: 1.03, 55–64: 0.92, 65–74: 1.00, 75–84: 1.00, 85+: 0.97;
+  overall 0.96). **They have not been refitted for the province**, which is
+  about eight times larger and has grown new institutions since (the central
+  hospital and its referrals among them). Measured on
+  version 0.1.0 (4 October 2026, the pooled experience export on the worker
+  pool, seeds `pool-1` …): 24 seeds × 20 years gave 1,661 deaths against
+  1,944.3 expected on 192,091 person-years (**A/E 0.854**, 95 % 0.81–0.90),
+  and 16 seeds × 30 years gave 1,787 against 2,130.8 on 192,869 (**A/E 0.839**,
+  0.80–0.88). By band (16 × 30): 0–14: 1.20, 15–34: 1.06, 35–44: 0.99,
+  45–54: 0.88, 55–64: 0.89, 65–74: 0.85, 75–84: 0.67, 85+: 0.70; by period
+  0.86 (years 1–5), 0.89 (6–10), 0.86 (11–20), 0.80 (21–30). The province
+  dies on its basis below 45 and more slowly from middle age, most of all from
+  75. A single run's A/E is experience and is reported with a 95 % interval
+  (the normal approximation, (A ± 1.96√A)/E). Re-check after touching any of
   these constants: `bun scripts/diag.ts 24 20 x` and
   `bun scripts/diag-bands.ts 16 30 x` (both accept `COMMUNITY_MORT_NORM` and
   `COMMUNITY_ILLNESS_SCALE` environment overrides for experiments).
@@ -222,8 +234,8 @@ east, west and south):
 
 **Wealth tiers** (`params.tiers`; a settlement's tier sets its households'
 education mix, car ownership, cover, opening savings and fallback job mix —
-Ebenezer's own households still read the baseline parameters, which now carry
-the affluent values):
+Ebenezer's own households still read the baseline parameters, whose defaults
+are the middle tier's values, and open with 0.5–6 months of income saved):
 
 | Tier | Education (none/prim/sec/matric/tert/postgrad) | Cars | Own car per further driver | Medical aid | Opening savings | Unemployment | Fallback jobs |
 |---|---|---|---|---|---|---|---|
@@ -826,13 +838,15 @@ has produced, on the same basis, at a valuation rate the user picks.
   past 60 and a deferred one for the rest, on the improved table; closed-group
   (the people alive today).
 
-## From outside: Scelo's bases, stresses and experiments (`src/sim/shocks.ts`, `experience.ts`, `experiment.ts`)
+## From outside: supplied bases, stresses and experiments (`src/sim/shocks.ts`, `experience.ts`, `experiment.ts`)
 
-Inside Scelo IDE the province exchanges data with the pipeline and the swarm
-(the Scelo exchange, `@scelo/core/exchange`). None of it changes a default
-province: with no supplied basis and no shocks every factor below is exactly 1
-and no random number is drawn differently (checked bit for bit against the
-engine before the exchange existed).
+A province can be given a mortality basis and timed shocks from outside its
+defaults: a province or experiment file in the workbench, a mortality table
+imported as CSV, or (inside Scelo IDE) the Scelo exchange (`scelo.exchange/1`,
+`src/shared/exchange.ts`). None of it changes a default province: with no
+supplied basis and no shocks every factor below is exactly 1 and no random
+number is drawn differently (checked bit for bit against the engine before the
+exchange existed).
 
 * **A supplied mortality basis** (`params.mortalityOverride`, hashed into the
   basis like any parameter). It becomes the basis: the table channel reads it
@@ -870,11 +884,12 @@ engine before the exchange existed).
   n" counts the seeds in which the arm improved the indicator in its stated
   direction. The indicators and their definitions are `METRICS` in
   `experiment.ts`. A job is limited to 800 province-years.
-* **Observed.** Over its first four years the province has run below its
-  basis: pooled A/E ≈ 0.78 across twelve seeds, and the default seed
-  `agincourt-12` had one death against 8.2 expected in three years. The basis is
-  calibrated over long runs (see Mortality). Scelo's truth check measures the
-  province's A/E and separates it from a fitted model's error.
+* **Observed.** The province runs below its basis (pooled A/E about 0.85;
+  see Mortality, *Calibration result*), and the default seed `agincourt-12` runs
+  well below it in its first years (one death against 8.2 expected in its first
+  three). The experience exports carry the basis as the truth, so a fitted
+  table's distance from the truth can be split into the province's own departure
+  from its basis and the model's error.
 
 ## Calendar and climate
 

@@ -7,19 +7,23 @@ play button in the top bar still runs it.
 
 ## The workspace
 
-A workspace is any folder. *File › Open Folder* opens one; *File › New Workspace* writes the sample (below) into a
-new folder, by default in your Documents. The IDE remembers the folder and the files you had open, and the
-recently used folders are under *File › Open Recent*.
+A workspace is any folder. *File › Open Folder* opens one. With no workspace open, the workbench shows its welcome
+screen, where *Create the sample workspace* writes the sample (below) into a new folder, `Community Lab` in your
+Documents by default; *File › New Workspace* closes the current workspace and brings that screen back. The IDE
+remembers the folder and the files you had open, and the recently used folders are under *File › Open Recent*.
+Opening another folder replaces the open tabs without asking, so save first.
 
-The explorer on the left shows the folder (folders first, then files; `node_modules`, `.git` and hidden files are
-left out). Hover over a file for its tools: run it, rename it, or move it to the trash (the system's trash in the
-desktop app; in a browser, the IDE's own trash folder in its data folder). The **+** button makes a new province,
-experiment, script or note in the folder for its kind, or saves the province on screen as a province file.
+The explorer on the left shows the folder (folders first, then files; hidden files other than `.gitignore`, and
+`node_modules`, `.git`, `.hg`, `.svn`, `__pycache__`, `.venv` and `venv`, are left out; a very large folder is listed
+to a few thousand entries and eight levels deep). Hover over a file or a folder for its tools: run it (a file that
+runs), rename it, or move it to the trash, after asking (the system's trash in the desktop app; in a browser, the
+IDE's own trash folder in its data folder). The **+** button makes a new province, experiment, script or note in the
+folder for its kind, or saves the province on screen as a province file.
 
 Everything is a plain text file, so a workspace can be versioned with git, diffed, reviewed and shared like any
 other project. The IDE writes a file by writing a temporary copy and renaming it over the original, so a crash
 never leaves half a file, and it will not save over a file that changed on disk after you opened it (another
-editor, a sync folder): the tab says so and offers to reload it or to keep yours.
+editor, a sync folder): the save is refused, and a bar above the editor offers to reload it or to keep yours.
 
 Paths never leave the workspace: the server that reads and writes the files resolves every path inside the
 folder and refuses `..`, absolute paths, and links that point somewhere else.
@@ -27,8 +31,9 @@ folder and refuses `..`, absolute paths, and links that point somewhere else.
 ## Files that run
 
 **Ctrl+Enter** (or the Run button above the editor, or the ▶ on a file in the explorer) runs the file in front. A
-file is saved before it runs, so what runs is what is on disk. Anything wrong is listed in **Problems** against the
-file, with its line where there is one, and nothing is half-applied.
+file is saved before it runs. An error stops the run and is listed in **Problems** against the file (with its line,
+for a script); a basis value the engine does not take (an unknown name, a value out of range) is a warning: that
+value is left out, named, and the rest of the file is applied.
 
 ### `*.province.json`: a province
 
@@ -49,7 +54,7 @@ file, with its line where there is one, and nothing is half-applied.
 | Field | What it is |
 |---|---|
 | `seed` | Same seed and basis, same province: the households, the weather and every draw the basis does not change. |
-| `basis` | The scenario parameters that differ from the defaults, by their names in `src/sim/params.ts`. The editor completes them and shows each one's meaning, range and default. Values outside the range the engine accepts are left out and named in Problems. |
+| `basis` | The scenario parameters that differ from the defaults, by their names in `src/sim/params.ts`; whatever the file does not name takes its default, so the same file always builds the same province. The editor completes them and shows each one's meaning, range and default. Values outside the range the engine accepts are left out and named in Problems. |
 | `mortality` | Optional. A mortality table to live on instead of the preset: a CSV in the workspace (see below) or a table inline (`{ "label", "source", "ages", "qx": { "M": [...], "F": [...] } }`). Every death channel follows it, and A/E is measured against it. |
 | `shocks` | Optional. Timed shocks, months from the start: `mortality` (multiplies every death hazard, optionally only between `minAge` and `maxAge`), `repo` (basis points on the rate the MPC sets), `oil` (multiplies the Brent price). |
 | `title`, `notes` | For people. |
@@ -81,7 +86,8 @@ the difference between an arm and the baseline on one seed is the change's doing
 differences over the seeds is what is left. Each of the 21 indicators (deaths per 1,000, A/E, life expectancy,
 under-five mortality, admissions, the burial society's reserve, ruin and loss ratio, cover, poverty, Gini,
 unemployment, GDP per resident, inflation, household debt and savings, tax, grants, the fiscal balance, incidents)
-gets a distribution per arm and a paired effect with a 95% Student-t interval.
+gets a distribution per arm and a paired effect with a 95% Student-t interval. (The 21 also include the residents
+at the end.)
 
 Arms can change parameters (`params`), live on their own mortality table (`mortality`), or add shocks (`shocks`);
 the base can do the same (`base`, `baseMortality`, `baseShocks`). Up to six arms, 2 to 64 seeds, 1 to 40 years, and
@@ -109,16 +115,16 @@ started on the pool.
 | `p.people()` | Residents: id, name, sex, age, city, settlement, tier, household, education, job, income, marital status, health, conditions, heritage, born here. |
 | `p.households()` | Households: id, name, city, settlement, tier, members, income, expenses, savings, debt, poor, cover. |
 | `p.experience({ ageWidth, group })` | Deaths, person-years and expected deaths by calendar year, age and sex (by city, settlement or tier with `group`), rebuilt person by person, with the true basis's q beside them. |
-| `p.events(kind)` | The event ledger: births, deaths, weddings, incidents, the economy, the weather. |
+| `p.events(kind)` | The event ledger (the most recent few thousand events), optionally of one kind: `birth`, `death`, `wedding`, `crime`, `intruder`, `economy`, `weather` and so on. |
 | `p.world` | The engine's own state; read it, do not change it. |
 | `await experiment(spec)` | A paired experiment on the worker pool (the format above); `template(id, years)` gives one of the lab's. |
-| `await monteCarlo({ basis, seeds, years })` | Seeds of one basis on the pool: every run, percentiles, the probability of the society's ruin, pooled A/E. |
-| `await pooledExperience({ basis, seeds, years, ageWidth })` | Experience pooled over seeds, with the true basis it was generated on: enough deaths to fit a period table. |
-| `print(...)`, `table(rows, columns)`, `plot({ x, series, title, yLabel, log })` | Output in the Console. |
+| `await monteCarlo({ basis, seeds, years })` | Seeds of one basis on the pool (20 seeds and 10 years by default; up to 200 and 60): every run, percentiles, the probability of the society's ruin, pooled A/E. |
+| `await pooledExperience({ basis, seeds, years, ageWidth, group })` | Experience pooled over seeds (16 and 10 by default; up to 64 and 40, and 800 province-years), with the true basis it was generated on: enough deaths to fit a period table. |
+| `print(...)`, `table(rows, columns)`, `plot({ x, series, title, xLabel, yLabel, log })` | Output in the Console. |
 | `csv(rows, columns)`, `await readFile(path)`, `await writeFile(path, text)` | The workspace's files. |
 | `METRICS`, `DEFAULT_BASIS`, `TEMPLATES` | The indicators, the default basis, the lab's experiments. |
 
-The editor completes and checks all of it as you type. An error in a script is reported with its line, in the
+The editor completes and checks the API as you type. An error in a script is reported with its line, in the
 Console and in Problems.
 
 ### Mortality tables (`*.csv`)
@@ -130,8 +136,8 @@ province on one directly.
 
 ### Everything else
 
-CSV opens as a table (with *Edit as text* beside it), Markdown as a preview (with *Edit as text*), JSON and any
-other text in the editor.
+CSV and TSV open as a table of their first 500 rows (with *Edit as text* beside it), a `README.md` as a preview
+(with *Edit as text*), and any other text in the editor. Binary files, and files over 5 MB, are not opened.
 
 ## The sample workspace
 
@@ -149,8 +155,8 @@ other text in the editor.
 | `scripts/premium-check.js` | The funeral premium cut and raised by a fifth, on six seeds. |
 | `bases/stressed-sa-2024.csv` | The sa-2024 preset, 15% heavier at every age. |
 
-Every file in it is generated from the engine's own templates, presets and defaults, and the test suite checks that
-each one runs as written (`tests/workspace.test.ts`).
+Every file in it is generated from the engine's own templates, presets and defaults, and the test suite checks every
+province and experiment file against the engine and compiles every script (`tests/workspace.test.ts`).
 
 ## Shortcuts
 
