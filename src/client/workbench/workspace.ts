@@ -150,6 +150,16 @@ function set(patch: Partial<WsState>): void {
   }
 }
 
+// Leaving the page (a reload, closing the tab or the window) with unsaved files asks first: the browser's own
+// prompt, or in the desktop app its dialog (desktop/src/main.ts, will-prevent-unload).
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', (e) => {
+    if (!lastDirty) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+}
+
 async function api<T>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
   const r = await fetch(path, init?.body === undefined ? { method: init?.method ?? 'GET' } : { method: init.method ?? 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(init.body) });
   const j = (await r.json().catch(() => ({}))) as T & { error?: string };

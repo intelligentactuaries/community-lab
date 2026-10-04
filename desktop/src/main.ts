@@ -129,6 +129,24 @@ async function createWindow(): Promise<void> {
   win.on('closed', () => {
     win = null;
   });
+  // The page asks before it is left with unsaved files (a reload, or the window closing): say so here. Closing has
+  // already asked (confirmDiscard), so then it goes ahead.
+  win.webContents.on('will-prevent-unload', (e) => {
+    if (discardConfirmed) {
+      e.preventDefault();
+      return;
+    }
+    const choice = dialog.showMessageBoxSync(win as BrowserWindow, {
+      type: 'warning',
+      buttons: ['Leave without saving', 'Stay'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Unsaved files',
+      message: 'Some files in the workbench have unsaved changes.',
+      detail: 'Reloading loses them. Stay and save them first (File › Save All)?',
+    });
+    if (choice === 0) e.preventDefault();
+  });
   guardNavigation(win);
   await win.loadFile(launchPage());
 
