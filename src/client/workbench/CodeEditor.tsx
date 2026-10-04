@@ -63,6 +63,8 @@ export function CodeEditor({ tab, revealLine }: { tab: Tab; revealLine?: { line:
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
       if (current.current) void runFile(current.current);
     });
+    // Stop, as the Run menu says (Monaco would otherwise insert a line above).
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.Enter, () => workspace.stop());
     const sub = editor.onDidChangeModelContent(() => {
       const m = editor.getModel();
       if (m && current.current) workspace.setText(current.current, m.getValue());

@@ -65,7 +65,7 @@ async function runProvince(path: string, text: string): Promise<void> {
       return fail(path, [`mortality: ${f.mortality} could not be read (${e instanceof Error ? e.message : String(e)})`]);
     }
   } else if (f.mortality) mortality = f.mortality;
-  const res = applyInputs({ label: f.title ?? path, from: path, seed: f.seed, params: f.basis, mortality, shocks: f.shocks });
+  const res = applyInputs({ label: f.title ?? path, from: path, seed: f.seed, params: f.basis, mortality, shocks: f.shocks, over: 'defaults' });
   if (!res.ok) return fail(path, res.rejected.length ? res.rejected : [res.message]);
   const warnings = [...file.warnings, ...res.rejected.map((r) => `basis.${r}; left out`)];
   workspace.setProblems(path, 'run', warnings.map((message) => ({ severity: 'warning' as const, message })));

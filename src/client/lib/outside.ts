@@ -26,6 +26,12 @@ export interface OutsideInputs {
   shocks?: Shock[];
   /** Rebuild the province on it (default), or put it in the lab as an arm beside the province as it is. */
   open?: 'province' | 'experiment';
+  /**
+   * What the patch is applied to: the province as it is (the default, as an imported table wants: same scenario,
+   * new basis), or the defaults, as a province file is read (its basis is what differs from the defaults, and a
+   * file without a seed has the default one), so the same file always builds the same province.
+   */
+  over?: 'current' | 'defaults';
 }
 
 export interface AppliedInputs {
@@ -49,7 +55,7 @@ export function applyInputs(x: OutsideInputs): AppliedInputs {
     store.openDrawer('lab');
     return { ok: true, message: 'Put in the policy lab as an arm beside the province as it is; run it there.', applied: [], rejected: [] };
   }
-  const { params, applied, rejected } = applyPatch(store.params, x.params);
+  const { params, applied, rejected } = applyPatch(x.over === 'defaults' ? {} : store.params, x.params);
   const next: Partial<ScenarioParams> = { ...params };
   if (x.seed) next.seed = x.seed;
   if (x.mortality) next.mortalityOverride = x.mortality;

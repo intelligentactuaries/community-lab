@@ -126,7 +126,8 @@ export function Workbench() {
         else void workspace.save();
       } else if (k === 'enter') {
         e.preventDefault();
-        void runFile();
+        if (e.shiftKey) workspace.stop();
+        else void runFile();
       } else if (k === 'b') {
         e.preventDefault();
         workspace.setExplorer(!workspace.state.explorerOpen);
