@@ -246,7 +246,8 @@ bun test                       # the engine's tests (determinism, bases, books, 
 bun run typecheck
 
 bun run desktop:install        # the desktop app's own dependencies (Electron, electron-builder)
-bun run desktop:dev            # the desktop app against the source
+bun run build                  # the client, which the engine serves to the desktop app in development
+bun run desktop:dev            # the desktop app, its engine run from the source with bun
 bun run desktop:dist:linux     # desktop/build/: the AppImage, the .deb and latest-linux.yml
 ```
 

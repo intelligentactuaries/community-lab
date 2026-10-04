@@ -28,7 +28,7 @@ git clone https://github.com/intelligentactuaries/community-lab.git
 cd community-lab
 bun install
 bun run dev            # API :3040, UI :5195
-bun run desktop:install && bun run desktop:dev
+bun run desktop:install && bun run build && bun run desktop:dev
 ```
 
 Before sending a pull request, `bun run typecheck` and `bun test` must pass. A change to the engine that moves an
