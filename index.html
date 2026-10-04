@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      // Paint the resolved theme before the stylesheet arrives — same key
+      // (`ia.theme`) and resolution as the Scelo IDE, so a dark-mode Scelo
+      // user lands in dark mode here too.
+      (function () {
+        try {
+          var c = localStorage.getItem('ia.theme');
+          var dark = c === 'dark' || (c !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        } catch (e) {}
+      })();
+    </script>
+    <title>Community Lab</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231B1815'/%3E%3Cg stroke='%23F1ECDF' stroke-opacity='0.4' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M32 38 32 14M32 38 14 50M32 38 50 50'/%3E%3C/g%3E%3Ccircle cx='32' cy='14' r='6' fill='%23F1ECDF'/%3E%3Ccircle cx='14' cy='50' r='6' fill='%23F1ECDF'/%3E%3Ccircle cx='50' cy='50' r='6' fill='%23F1ECDF'/%3E%3Ccircle cx='32' cy='38' r='5.5' fill='%2382D7AF'/%3E%3C/svg%3E" />
+    <!-- SN Pro, the Scelo typeface, is bundled (@fontsource/sn-pro in main.tsx): no request leaves the machine. -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/client/main.tsx"></script>
+  </body>
+</html>
