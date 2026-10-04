@@ -1,0 +1,11 @@
+{
+  "$schema": "https://intelligentactuaries.com/schemas/community-lab/province.json",
+  "title": "An ageing province",
+  "notes": "An older age profile, fertility well below replacement and faster mortality improvement: more pensioners, fewer workers, a heavier grant bill.",
+  "seed": "ageing-1",
+  "basis": {
+    "ageProfile": "ageing",
+    "tfr": 1.6,
+    "mortalityImprovement": 0.015
+  }
+}

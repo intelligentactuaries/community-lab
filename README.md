@@ -291,6 +291,7 @@ scripts/          dev runner, batch, calibrate, smoke, screenshots, the embed bu
 tests/            bun test suite
 docs/             ODD.md (model description), ASSUMPTIONS.md (basis and provenance), WORKBENCH.md, INSTALL.md,
                   RELEASING.md
+manual/           the user manual (MkDocs Material), published at docs.intelligentactuaries.com/community-lab
 ```
 
 ## Status and honesty

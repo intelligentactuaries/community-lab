@@ -1,0 +1,7 @@
+{
+  "$schema": "https://intelligentactuaries.com/schemas/community-lab/province.json",
+  "title": "The default province",
+  "notes": "Unity Province on the default basis: published South African mortality (sa-2024) and fertility, the 2026/27 tax tables, a repo rate of 6.75%.",
+  "seed": "agincourt-12",
+  "basis": {}
+}

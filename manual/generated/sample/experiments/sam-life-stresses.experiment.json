@@ -1,0 +1,37 @@
+{
+  "$schema": "https://intelligentactuaries.com/schemas/community-lab/experiment.json",
+  "notes": "SAM life underwriting stresses, lived through: mortality +15% at every age for the whole run, and a catastrophe month of 1.5 extra deaths per 1,000 lives.",
+  "title": "SAM life stresses on the burial society",
+  "question": "Does the burial society survive the standard formula's life stresses, lived through rather than assumed?",
+  "audience": "actuarial",
+  "arms": [
+    {
+      "id": "mortality-15",
+      "label": "Mortality +15% on every age",
+      "shocks": [
+        {
+          "kind": "mortality",
+          "label": "SAM mortality stress +15%",
+          "fromMonth": 0,
+          "months": 120,
+          "factor": 1.15
+        }
+      ]
+    },
+    {
+      "id": "catastrophe",
+      "label": "Catastrophe: +1.5‰ of lives in one month",
+      "shocks": [
+        {
+          "kind": "mortality",
+          "label": "SAM catastrophe month",
+          "fromMonth": 12,
+          "months": 1,
+          "factor": 2.8
+        }
+      ]
+    }
+  ],
+  "seeds": 8,
+  "years": 10
+}

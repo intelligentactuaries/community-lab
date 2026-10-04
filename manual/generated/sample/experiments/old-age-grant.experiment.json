@@ -1,0 +1,18 @@
+{
+  "$schema": "https://intelligentactuaries.com/schemas/community-lab/experiment.json",
+  "notes": "A 20% higher older persons grant: what it costs the fiscus, and what it buys in poverty and health.",
+  "title": "Raise the old-age grant",
+  "question": "What does a 20% higher older persons grant cost the fiscus, and what does it buy in poverty and health?",
+  "audience": "government",
+  "arms": [
+    {
+      "id": "grant-up",
+      "label": "Old-age grant +20% (R2,880)",
+      "params": {
+        "oldAgeGrant": 2880
+      }
+    }
+  ],
+  "seeds": 8,
+  "years": 10
+}

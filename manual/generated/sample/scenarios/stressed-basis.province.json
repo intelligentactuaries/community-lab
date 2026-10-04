@@ -1,0 +1,8 @@
+{
+  "$schema": "https://intelligentactuaries.com/schemas/community-lab/province.json",
+  "title": "Living on a supplied table",
+  "notes": "The province lives on bases/stressed-sa-2024.csv instead of its preset: every death channel follows the table, and A/E is measured against it.",
+  "seed": "agincourt-12",
+  "basis": {},
+  "mortality": "bases/stressed-sa-2024.csv"
+}

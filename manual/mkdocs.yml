@@ -1,0 +1,143 @@
+site_name: Community Lab IDE
+site_description: A province you can run, on your machine. The user manual for Community Lab IDE, the desktop IDE for actuarial agent-based simulation.
+site_url: https://docs.intelligentactuaries.com/community-lab/
+# Rendered as HTML in the footer of every page. Carries the way back up to
+# the hub, since this sub-site is one of several on the domain.
+copyright: >-
+  Copyright © 2026 Intelligent Actuaries ·
+  <a href="https://docs.intelligentactuaries.com/">All documentation</a>
+
+extra_css:
+  - stylesheets/extra.css
+
+theme:
+  name: material
+  language: en
+  # The C₀.₁ mark (brand/generate_logo.py). The masthead is dark in both
+  # schemes, so the header logo is the cream variant; the favicon follows
+  # the OS, the way a browser tab should. Same arrangement as the Scelo docs.
+  logo: assets/img/community-lab-mark-cream.svg
+  favicon: assets/img/community-lab-icon.svg
+  # overrides/main.html only adds the one-time palette reset the Scelo docs
+  # carry, so every sub-site of the domain lands on the cream default.
+  custom_dir: overrides
+  font:
+    text: Inter
+    code: JetBrains Mono
+  # No `media:` keys, deliberately: Material then starts a fresh visitor on
+  # the first palette (cream) instead of following the OS. See the Scelo docs.
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - navigation.tracking
+    - navigation.footer
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - def_list
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  # The model description and the assumptions are included from the
+  # repository's docs/ at build time, so the manual can never disagree with
+  # the files the engine's source cites.
+  - pymdownx.snippets:
+      base_path: [".."]
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.keys
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra:
+  generator: false
+  homepage: https://docs.intelligentactuaries.com/
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Installation:
+      - installation/index.md
+      - Linux: installation/linux.md
+      - Windows: installation/windows.md
+      - macOS: installation/macos.md
+      - First launch: installation/first-launch.md
+  - Getting started: getting-started.md
+  - The province:
+      - province/index.md
+      - Time and the clock: province/time.md
+      - The map: province/map.md
+      - People, households and places: province/inspector.md
+      - Conversations: province/conversations.md
+      - The 3D close-up: province/3d.md
+      - Scenario and basis: province/scenario.md
+  - Analytics:
+      - analytics/index.md
+      - Population, health and safety: analytics/population.md
+      - Mortality and experience: analytics/mortality.md
+      - Economy and finance: analytics/economy.md
+      - The actuarial workbench: analytics/actuarial.md
+      - The policy and stress lab: analytics/lab.md
+      - Monte Carlo: analytics/monte-carlo.md
+  - The workbench:
+      - workbench/index.md
+      - Province files: workbench/province-files.md
+      - Experiment files: workbench/experiment-files.md
+      - Scripts: workbench/scripts.md
+      - Script API: workbench/script-api.md
+      - Mortality tables: workbench/mortality-tables.md
+      - The sample workspace: workbench/sample.md
+  - Exports and data:
+      - exports/index.md
+      - The exchange format: exports/exchange.md
+  - The model:
+      - model/index.md
+      - Calibration and limits: model/calibration.md
+      - Model description (ODD): model/odd.md
+      - Assumptions and provenance: model/assumptions.md
+  - Reference:
+      - reference/index.md
+      - Basis parameters: reference/basis.md
+      - Indicators: reference/indicators.md
+      - Lab templates: reference/templates.md
+      - Keyboard and mouse: reference/shortcuts.md
+      - Settings: reference/settings.md
+      - Files and environment: reference/files.md
+      - The engine's API: reference/api.md
+      - Troubleshooting: reference/troubleshooting.md
+      - Build from source: build-from-source.md
+      - License: license.md
+      - What's new: whats-new.md
