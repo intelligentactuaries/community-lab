@@ -131,5 +131,9 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Community Lab IDE
-  # The installer shows the license before installing: resources/license.txt, a copy of ../LICENSE made by
-  # scripts/bundle-server.sh (electron-builder looks for license.txt in buildResources by itself).
+# No installer shows a license page, as with Scelo IDE: the license is accepted
+# where the installer is downloaded (intelligentactuaries.com/community-lab),
+# ships with every installation (resources/LICENSE.txt) and is linked from
+# Help and About. Keep license.txt / eula.txt OUT of resources/: electron-
+# builder would turn either into a first-run dialog in the AppImage and a
+# license page in the NSIS installer.

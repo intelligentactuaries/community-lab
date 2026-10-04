@@ -1,0 +1,133 @@
+# Builds the Apple Silicon .dmg for a release and attaches it to that (already
+# published) release:
+#
+#   gh workflow run release-macos.yml -f tag=community-lab-v0.1.0
+#
+# Unsigned: there is no Apple Developer ID yet. Apple Silicon refuses code with
+# no signature at all, so the .app is ad-hoc signed after packaging
+# (electron-builder's own signing is off) and not notarised; the first launch
+# needs the Gatekeeper steps in docs/INSTALL.md. macOS 14+, arm64 only.
+name: release-macos
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build and attach the .dmg to (e.g. community-lab-v0.1.0)
+        required: true
+      ref:
+        description: Commit to build instead of the tag itself (a macOS-only fix of the same version)
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  dmg:
+    runs-on: macos-14
+    timeout-minutes: 90
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || inputs.tag }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: The version must match the tag
+        id: v
+        run: |
+          v="${TAG#community-lab-v}"
+          have="$(node -p "require('./desktop/package.json').version")"
+          if [ "$have" != "$v" ]; then
+            echo "::error::desktop/package.json is $have, the tag says $v"; exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Install
+        run: |
+          bun install --frozen-lockfile
+          cd desktop && bun install --frozen-lockfile
+
+      - name: Bundle the engine (darwin-arm64) and build the main process
+        working-directory: desktop
+        run: |
+          TARGET_OS=mac bash scripts/bundle-server.sh
+          bun run build:main
+
+      - name: Package Community Lab IDE.app (signing off)
+        working-directory: desktop
+        run: npx electron-builder --mac dir --arm64 --publish never -c.mac.identity=null -c.mac.notarize=false
+
+      - name: Ad-hoc sign
+        id: app
+        working-directory: desktop
+        run: |
+          APP="$(ls -d build/mac*/*.app | head -1)"
+          echo "path=$PWD/$APP" >> "$GITHUB_OUTPUT"
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --verbose=2 "$APP" || echo "::warning::codesign --verify reported the above"
+
+      - name: Smoke test the packaged app
+        env:
+          APP: ${{ steps.app.outputs.path }}
+        run: |
+          set -x -o pipefail
+          R="$APP/Contents/Resources"
+          D="$RUNNER_TEMP/engine-data"; mkdir -p "$D"
+          test -f "$R/LICENSE.txt"
+          PORT=3123 COMMUNITY_DATA_DIR="$D" COMMUNITY_STATIC_DIR="$R/server/ui" COMMUNITY_WARM_OLLAMA=0 COMMUNITY_WORKERS=2 \
+            "$R/server/community-lab-server" > "$RUNNER_TEMP/engine.log" 2>&1 &
+          for i in $(seq 1 60); do curl -fsS -o "$RUNNER_TEMP/health.json" http://127.0.0.1:3123/api/health && break; sleep 1; done
+          grep -q '"app":"community-lab"' "$RUNNER_TEMP/health.json"
+          pkill -f community-lab-server || true
+          # Launch it and look.
+          EXE="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP/Contents/Info.plist")"
+          "$EXE" > app-stdout.log 2>&1 &
+          PID=$!
+          sleep 45
+          screencapture -x community-lab-macos.png || true
+          kill "$PID" || true
+          sleep 3
+          find ~/Library/Logs -name main.log -path '*community-lab-ide*' -exec cp {} app-main.log \; 2>/dev/null || true
+          kill -0 "$PID" 2>/dev/null && kill -9 "$PID" || true
+
+      - name: Build the .dmg
+        id: dmg
+        working-directory: desktop
+        env:
+          APP: ${{ steps.app.outputs.path }}
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          STAGE="$(mktemp -d)"
+          cp -R "$APP" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          DMG="build/Community-Lab-IDE-$VERSION-arm64.dmg"
+          hdiutil create -volname "Community Lab IDE $VERSION" -srcfolder "$STAGE" -ov -format UDZO -imagekey zlib-level=9 "$DMG"
+          hdiutil verify "$DMG"
+          shasum -a 256 "$DMG"
+          echo "path=$PWD/$DMG" >> "$GITHUB_OUTPUT"
+
+      - name: Attach to the release
+        run: gh release upload "$TAG" "${{ steps.dmg.outputs.path }}" --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-smoke
+          path: |
+            community-lab-macos.png
+            app-stdout.log
+            app-main.log
+          if-no-files-found: ignore

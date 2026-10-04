@@ -20,6 +20,10 @@ export function HelpOverlay() {
             <p><b>Who is where.</b> A place with nobody in it is drawn slightly greyed: a house whose household has all gone out to work, school or church, a shop after hours, a church on a weekday, a parked car, an empty bus. Colour returns the moment someone is inside.</p>
           </section>
           <section className="modal-section">
+            <h2>The province and the workbench</h2>
+            <p>Community Lab IDE has two views, switched in the top bar (<kbd>Ctrl</kbd> <kbd>1</kbd> and <kbd>Ctrl</kbd> <kbd>2</kbd>). <b>The province</b> is this one. <b>The workbench</b> is a folder of files you choose, with an editor that knows their shapes and a run for each: a <code>.province.json</code> rebuilds the province on a seed, a basis, a mortality table and shocks; a <code>.experiment.json</code> runs a paired experiment on the worker pool and keeps its result in the folder; a <code>.js</code> script runs beside the editor with the engine at hand. <kbd>Ctrl</kbd> <kbd>Enter</kbd> runs the file in front, <kbd>Ctrl</kbd> <kbd>S</kbd> saves it. File › New Workspace starts from a sample in which every file runs. The province keeps its clock while you work there.</p>
+          </section>
+          <section className="modal-section">
             <h2>Time</h2>
             <p>The speed control runs from real time (1×) to thirty years per minute. Up to one hour per second the simulation is <b>animated</b>: people walk the roads, drive the family car, hold conversations. Faster than that it becomes a <b>time-lapse</b>: only the daily demographic, health and economic processes run and people are shown where their day plan puts them. Both modes run the same day-step pipeline, so outcomes do not depend on the speed you watch at.</p>
           </section>
@@ -41,7 +45,7 @@ export function HelpOverlay() {
           </section>
           <section className="modal-section">
             <h2>Keys</h2>
-            <p><kbd>Space</kbd> play / pause · <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> speed presets · <kbd>Esc</kbd> drill out / clear selection · <kbd>F</kbd> follow selected · <kbd>[</kbd> <kbd>]</kbd> toggle side panels · <kbd>L</kbd> legend · <kbd>?</kbd> this help</p>
+            <p><kbd>Space</kbd> play / pause · <kbd>1</kbd>–<kbd>9</kbd>, <kbd>0</kbd> speed presets · <kbd>Esc</kbd> drill out / clear selection · <kbd>F</kbd> follow selected · <kbd>[</kbd> <kbd>]</kbd> toggle side panels · <kbd>L</kbd> legend · <kbd>?</kbd> this help · <kbd>Ctrl</kbd> <kbd>1</kbd> / <kbd>2</kbd> province / workbench</p>
           </section>
           <section className="modal-section">
             <h2>For actuaries</h2>

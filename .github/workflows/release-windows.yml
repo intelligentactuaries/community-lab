@@ -1,0 +1,153 @@
+# Builds the Windows NSIS installer (.exe) for a release on GitHub's Windows
+# runner, smoke-tests it, installs it silently, launches it, and attaches it
+# to that (already published) release:
+#
+#   gh workflow run release-windows.yml -f tag=community-lab-v0.1.0
+#
+# Git Bash is the shell, so the bash bundling script runs as it does on a
+# workstation; Bun compiles the engine for windows-x64. Unsigned: SmartScreen
+# warns on first launch. Uploads ONLY the .exe: shipping latest.yml would
+# switch on Windows auto-update, a product decision rather than a side effect.
+name: release-windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build and attach the .exe to (e.g. community-lab-v0.1.0)
+        required: true
+      ref:
+        description: Commit to build instead of the tag itself (a Windows-only fix of the same version)
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  exe:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      # The bundling script is bash; a CRLF checkout breaks it.
+      - name: Keep LF line endings
+        run: git config --global core.autocrlf false && git config --global core.eol lf
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || inputs.tag }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: The version must match the tag
+        id: v
+        run: |
+          v="${TAG#community-lab-v}"
+          have="$(node -p "require('./desktop/package.json').version")"
+          if [ "$have" != "$v" ]; then
+            echo "::error::desktop/package.json is $have, the tag says $v"; exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: Install
+        run: |
+          bun install --frozen-lockfile
+          cd desktop && bun install --frozen-lockfile
+
+      - name: Bundle the engine (windows-x64) and build the main process
+        working-directory: desktop
+        run: |
+          TARGET_OS=win bash scripts/bundle-server.sh
+          bun run build:main
+
+      - name: Package the NSIS installer (unsigned)
+        working-directory: desktop
+        run: node node_modules/electron-builder/cli.js --win nsis --x64 --publish never
+
+      - name: Smoke test the engine inside the package
+        working-directory: desktop/build/win-unpacked/resources
+        run: |
+          set -x -o pipefail
+          T="$(cygpath -u "$RUNNER_TEMP")"
+          mkdir -p "$T/engine-data"
+          test -f server/community-lab-server.exe
+          test -f server/ui/index.html
+          test -f LICENSE.txt
+          PORT=3123 COMMUNITY_DATA_DIR="$(cygpath -w "$T/engine-data")" COMMUNITY_STATIC_DIR="$(cygpath -w "$PWD/server/ui")" \
+            COMMUNITY_WARM_OLLAMA=0 COMMUNITY_WORKERS=2 server/community-lab-server.exe > "$T/engine.log" 2>&1 &
+          for i in $(seq 1 60); do curl -fsS -o "$T/health.json" http://127.0.0.1:3123/api/health && break; sleep 1; done
+          grep -q '"app":"community-lab"' "$T/health.json"
+          id="$(curl -fsS -X POST -H 'content-type: application/json' -d '{"kind":"experience","seeds":2,"years":1}' http://127.0.0.1:3123/api/exports | node -p 'JSON.parse(require("fs").readFileSync(0)).id')"
+          status=running
+          for i in $(seq 1 180); do
+            status="$(curl -fsS "http://127.0.0.1:3123/api/exports/$id" | node -p 'const j = JSON.parse(require("fs").readFileSync(0)); j.status === "done" ? "done " + j.export.tables[0].rows.length : j.status + (j.error ? ": " + j.error : "")')"
+            case "$status" in done*|error*|cancelled*) break ;; esac
+            sleep 2
+          done
+          echo "pooled export: $status"
+          taskkill //F //IM community-lab-server.exe || true
+          cp "$T/engine.log" "$(cygpath -u "$GITHUB_WORKSPACE")/engine.log" || true
+          case "$status" in "done 0") exit 1 ;; done*) ;; *) exit 1 ;; esac
+
+      - name: Install it silently and check the installed files
+        shell: pwsh
+        working-directory: desktop/build
+        run: |
+          $exe = Get-ChildItem "Community-Lab-IDE-*-x64.exe" | Select-Object -First 1
+          "installer: $($exe.Name)  $([math]::Round($exe.Length / 1MB)) MB"
+          Start-Process -FilePath $exe.FullName -ArgumentList "/S" -Wait
+          $app = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Depth 2 -Filter "community-lab-ide.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $app) { throw "the installer did not install community-lab-ide.exe under $env:LOCALAPPDATA\Programs" }
+          "installed: $($app.FullName)"
+          $res = Join-Path $app.DirectoryName "resources"
+          foreach ($f in "server\community-lab-server.exe", "server\ui\index.html", "app.asar", "LICENSE.txt") {
+            if (-not (Test-Path (Join-Path $res $f))) { throw "installed app is missing $f" }
+          }
+          "APP=$($app.FullName)" >> $env:GITHUB_ENV
+
+      - name: Launch the installed app and look
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath $env:APP -PassThru
+          Start-Sleep -Seconds 45
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$env:GITHUB_WORKSPACE\community-lab-windows.png")
+          $log = Join-Path $env:APPDATA "community-lab-ide\logs\main.log"
+          if (Test-Path $log) { Copy-Item $log "$env:GITHUB_WORKSPACE\app-main.log"; Select-String -Path $log -Pattern "engine" }
+          Get-Process community-lab-ide, community-lab-server -ErrorAction SilentlyContinue | Stop-Process -Force
+
+      - name: Attach to the release
+        working-directory: desktop/build
+        env:
+          VERSION: ${{ steps.v.outputs.version }}
+        run: |
+          sha256sum "Community-Lab-IDE-$VERSION-x64.exe"
+          gh release upload "$TAG" "Community-Lab-IDE-$VERSION-x64.exe" --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Keep the evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke
+          path: |
+            community-lab-windows.png
+            app-main.log
+            engine.log
+          if-no-files-found: ignore

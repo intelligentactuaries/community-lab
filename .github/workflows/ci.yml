@@ -1,0 +1,41 @@
+# Every push and pull request: the types, the client and desktop builds, and
+# the engine's tests (determinism, the bases, the books, the workspace's path
+# safety, the sample workspace's validity).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Types
+        run: bun run typecheck
+
+      - name: Build the client
+        run: bun run build
+
+      - name: Build the engine for web pages
+        run: bun scripts/build-embed.ts
+
+      - name: Build the desktop main process
+        run: |
+          cd desktop
+          bun install --frozen-lockfile
+          bun run build:main
+
+      - name: Tests
+        run: bun test --timeout 600000

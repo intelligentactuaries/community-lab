@@ -56,10 +56,7 @@ echo "  ↓ Compiling the server ($BUN_TARGET)"
 chmod +x "$OUT_DIR/$BIN_NAME" 2>/dev/null || true
 echo "  ✓ Server at $OUT_DIR/$BIN_NAME ($(du -h "$OUT_DIR/$BIN_NAME" | cut -f1))"
 
-# ─── 3. The license, for the Windows installer's license page ─────────
-cp "$REPO_ROOT/LICENSE" "$DESKTOP_DIR/resources/license.txt"
-
-# ─── 4. Manifest ────────────────────────────────────────────────────────
+# ─── 3. Manifest ────────────────────────────────────────────────────────
 bin_size=$(du -sk "$OUT_DIR/$BIN_NAME" | awk '{print $1 * 1024}')
 ui_size=$(du -sk "$OUT_DIR/ui" | awk '{print $1 * 1024}')
 commit=$(cd "$REPO_ROOT" && git rev-parse --short HEAD 2>/dev/null || echo unknown)

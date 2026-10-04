@@ -1,23 +1,20 @@
 <div align="center">
+  <picture>
+    <img src="brand/community-lab_C0_1.svg" alt="Community Lab" width="120" />
+  </picture>
 
-# Community Lab
+# Community Lab IDE
 
-**An animated, actuarial agent-based life-course microsimulation of a small South African province.**
+**A province you can run. On your machine.**
 
-Three cities a drive apart — rich, church-going **Emmaus**; secular **Newhaven** (no church, mosque or temple);
-poor, devout **Ithemba** — around the shared **Unity Centre**: the central hospital, the CBD with Government
-House, the Reserve Bank, the provincial police and the mall, and Unity Park with its stadium and concert hall ·
-the **Hyperline** train, four bus lines, minibus taxis, ambulances and two aeroplanes from the provincial airport ·
-100 households · every person an agent · published South African mortality and fertility bases ·
-actual-vs-expected experience analysis · a community funeral & life scheme with its surplus process ·
-double-entry books for every household, firm, church and bank, hash-chained and audited ·
-Monte Carlo replications · conversations scripted live by a local model (Ollama `gpt-oss` by default).
-
-A sibling of the [Scelo](https://github.com/intelligentactuaries/scelo) workbench — same typeface (SN Pro), palette and chrome.
+An independent desktop IDE for actuarial agent-based simulation: a small South African province where every
+person is an agent living on published mortality and fertility bases, every rand is posted to double-entry books,
+a burial society carries the risk, and a workbench of files runs provinces, paired experiments and scripts
+against it. It runs offline; a local model scripts the conversations.
 
 ![Bun 1.1+](https://img.shields.io/badge/Bun-1.1%2B-181715?style=flat-square&logo=bun&logoColor=white)
+![Electron 33](https://img.shields.io/badge/Electron-33-45423D?style=flat-square&logo=electron&logoColor=white)
 ![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-45423D?style=flat-square&logo=typescript&logoColor=white)
-![tests passing](https://img.shields.io/badge/tests-passing-26714C?style=flat-square)
 ![pooled A/E 1.00](https://img.shields.io/badge/pooled_A%2FE-1.00-26714C?style=flat-square)
 ![Heligman-Pollard](https://img.shields.io/badge/mortality-Heligman--Pollard-345DCB?style=flat-square)
 ![Ollama gpt-oss](https://img.shields.io/badge/dialogue-Ollama_gpt--oss-8E5823?style=flat-square)
@@ -40,6 +37,55 @@ A sibling of the [Scelo](https://github.com/intelligentactuaries/scelo) workbenc
 </div>
 
 ---
+
+## Download
+
+Installers are on the [**Releases tab**](https://github.com/intelligentactuaries/community-lab/releases), and
+[intelligentactuaries.com/community-lab](https://intelligentactuaries.com/community-lab) always links each
+platform's newest build.
+
+| Platform | Installer | Notes |
+|---|---|---|
+| Linux (Ubuntu 22.04+, Debian 12+), x64 | `Community-Lab-IDE-<version>-amd64.deb` | `sudo apt install ./Community-Lab-IDE-<version>-amd64.deb` |
+| Linux, x64 | `Community-Lab-IDE-<version>-x86_64.AppImage` | `chmod +x` it and run it. Needs FUSE 2 (`sudo apt install libfuse2t64`, or `libfuse2` before 24.04). Updates itself. |
+| Windows 10/11, x64 | `Community-Lab-IDE-<version>-x64.exe` | Not code-signed yet: SmartScreen warns on first launch (**More info → Run anyway**). |
+| macOS 14+, Apple Silicon | `Community-Lab-IDE-<version>-arm64.dmg` | Not notarised yet: clear the quarantine flag once, `xattr -dr com.apple.quarantine "/Applications/Community Lab IDE.app"`. |
+
+Everything the IDE needs ships inside it: the engine (a compiled Bun server with its worker pool), the client, the
+3D people. Nothing is fetched at run time. For conversations scripted by a model, install
+[Ollama](https://ollama.com) and `ollama pull gpt-oss:20b` (or pick any other model, or a hosted provider, in
+Settings); the simulation itself needs no model. [docs/INSTALL.md](docs/INSTALL.md) has the details: where your
+data and logs live, updates, uninstalling.
+
+## Two views
+
+**The province** is the simulation, live: the map of Unity Province with every resident on it, the 3D close-up
+past the room plans, the analytics drawer along the bottom (population, mortality A/E, fertility, health, the
+economy, the books and tax, the actuarial workbench, the burial society, safety and the court, the policy and
+stress lab, Monte Carlo), the inspector for any person, household or building, and the clock that runs from real
+time to thirty years a minute.
+
+**The workbench** is the IDE around it: a folder of files you choose (a *workspace*), an editor that knows their
+shapes, and a run for each kind of file.
+
+| File | What running it does (Ctrl+Enter) |
+|---|---|
+| `*.province.json` | Rebuilds the province on it: a seed, the basis (only what differs from the defaults), and optionally a mortality table (a CSV in the workspace) and timed shocks. |
+| `*.experiment.json` | A paired experiment on the local worker pool: the baseline and up to six arms on the same seeds (common random numbers), 21 indicators with 95% intervals; the result is kept in `results/`. |
+| `*.js` | A script, run in a worker beside the editor with the engine at hand: `province()`, `experiment()`, `monteCarlo()`, `pooledExperience()`, `print`, `table`, `plot`, `readFile`, `writeFile`. |
+
+```js
+// A/E by age in a few lines (the sample's scripts/ae-by-age.js bands it and saves a CSV)
+const p = await province({ seed: 'ae-by-age' });
+p.run({ years: 5 });
+const rows = p.experience({ ageWidth: 10 });   // deaths, person-years, expected deaths by year, age and sex
+table(rows);
+plot({ x: rows.map((r) => r.age), series: { 'A/E': rows.map((r) => r.deaths / r.expected_deaths) } });
+```
+
+File › New Workspace writes a sample to start from: four provinces, two experiments, four scripts and a mortality
+table, every one runnable. [docs/WORKBENCH.md](docs/WORKBENCH.md) is the full reference: both file formats, the
+script API, and the shortcuts.
 
 ## What it is
 
@@ -115,7 +161,7 @@ a Laffer curve. None of it clutters the village: two tiles open one workspace.
 
 ## For actuaries
 
-* **Explicit basis.** Every rate is a parameter (left panel) and the whole basis is hashed onto every export.
+* **Explicit basis.** Every rate is a parameter (the left panel, or a province file in the workbench) and the whole basis is hashed onto every export.
   Mortality is Heligman–Pollard with presets from a real rural South African HDSS (Agincourt, pre-ART and
   ART era) and a Stats SA 2024-calibrated table; fertility is an ASFR schedule scaled to the published TFR.
   See [`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md) for every number and its provenance.
@@ -152,30 +198,6 @@ a Laffer curve. None of it clutters the village: two tiles open one workspace.
   Mutual Banks Act with IFRS 9 expected credit losses and Basel I risk weights.
 * **Documentation.** The model is described with the ODD protocol in [`docs/ODD.md`](docs/ODD.md).
 
-## Quick start
-
-Requires [Bun](https://bun.sh) ≥ 1.1 and, for scripted conversations, [Ollama](https://ollama.com)
-with `gpt-oss:20b` pulled (`ollama pull gpt-oss:20b`). Any other Ollama model, or an Anthropic / OpenAI /
-Gemini / OpenAI-compatible endpoint, can be chosen in Settings.
-
-```bash
-bun install
-bun run dev          # API on http://localhost:3020, UI on http://localhost:5175
-```
-
-Production: `bun run build && bun run start` serves the built client from the API on :3020.
-
-Other commands:
-
-```bash
-bun test                                   # engine tests (determinism, bases, road graph, three-year run)
-bun run typecheck
-bun scripts/batch.ts --seeds 20 --years 30 --out data/batch.csv   # Monte Carlo from the CLI
-bun scripts/calibrate.ts --fit             # re-derive the mortality presets from their targets
-bun scripts/smoke.ts 5                     # five simulated years, printed summary
-bun scripts/shot.ts                        # headless screenshots of the running app (data/shots)
-```
-
 ## Using it
 
 | Do | How |
@@ -187,55 +209,83 @@ bun scripts/shot.ts                        # headless screenshots of the running
 | Watch a conversation | zoom to two people talking (dashed line between them); the inspector shows the transcript; **Script with AI** asks the model to write it from their personalities, relationship, mood and recent events (or switch dialogue to *automatic* in Settings) |
 | Talk to a resident | select a person → *Talk to …* in the inspector (in character, from the simulation state) |
 | Direct the scene | click the **clock** in the header: jump to the Sunday service, fellowship, a school morning, market day, a date or a season, and force the weather (storm, heat wave, cold snap) to see how the community responds. Days in between are still simulated; a forced sky is recorded in the event ledger |
-| Change the scenario | *Scenario & basis* in the left panel → Rebuild province |
+| Change the scenario | *Scenario & basis* in the left panel → Rebuild province; or write a province file in the workbench and run it |
 | Analytics | the bottom strip is the navigation: every tile opens its detailed tab (click the lit tile again to close). The ⤢ button in the drawer header makes it full screen so every chart of a tab fits without scrolling |
 | Actuarial workbench | the **Actuarial** tile (its figure is the society's premium loading over the pure risk premium): sections for interest, life contingencies, pricing, risk & solvency, projections, retirement & grants and standards; the valuation rate chips at the top of the rail revalue everything; the scope picker's person becomes the life, and the worker, the sections describe |
 | Economy, books, bank and tax | the **Economy** tile opens the workspace at the overview (micro and macro alongside); the **Finance & tax** tile opens it at the Mutual Bank (books, burial society, SARS and audit alongside). A household's inspector shows its accounts and opens its ledger; select the bank building on the map for its balance sheet; a person's card shows their payslip and SARS position |
 | Tell households apart | every plot has a fixed colour: the plot border and tint, the small badge at the bottom-right of each resident's shape, the chips in the lists and inspector. Select a household (or a person) and all its members get a halo wherever they are in the province |
 | See who is where | any place with nobody in it — a house whose household is out, a weekday church, a shop after hours, a parked car or an empty bus — is drawn slightly greyed; the colour comes back when someone is inside |
 | Choose the AI model | the model chip in the top bar, or Settings |
+| Export the data | the **Exports** chip in the top bar: experience, the person-year panel, the burial society's book, the economy, each with its provenance; to CSV, JSON or a folder of the workspace |
+| Live on your own table | Exports › *Import a mortality table (CSV)*, or `"mortality": "bases/your-table.csv"` in a province file |
 
-## Inside Scelo IDE
+## Community Lab and Scelo IDE
 
-Community Lab ships inside [Scelo IDE](https://github.com/intelligentactuaries/scelo) (`apps/community` in the
-Scelo repo): the IDE starts its server with the app, and the **community lab** link at the top right of the pipeline
-opens it. The **Scelo** chip in the top bar and the **Policy lab** tile on the strip lead to what it adds there:
+Community Lab also ships inside [Scelo IDE](https://github.com/intelligentactuaries/scelo), the actuarial
+workbench, where it is joined to Scelo's soft data, tools and hard data pipeline. This repository is Community
+Lab as an application of its own: it needs neither Scelo nor its agent swarm, and runs its engine on its own port
+(3040; Scelo's bundled copy keeps 3020), so the two can be installed side by side.
 
-* **Send to Scelo:** the province's mortality experience (with the true basis it was generated on), the person-year
-  panel, the burial society's book as lifelib model points and the economy month by month, into Scelo's Soft Data or
-  the open workspace. Many seeds can be pooled on the server first.
-* **From Scelo:** a mortality table Scelo fitted (to this province's experience or any other) to rebuild the province
-  on, or to compare with the province's basis in the lab; stresses from Hard Data.
-* **The policy & stress lab:** paired experiments on the server's worker pool: templates for actuaries (SAM life
-  stresses, a pandemic year, premium adequacy, a rate shock), governments (grants, the minimum wage, an oil shock) and
-  social developers (cover for all, better clinics, medical aid), with effects and 95% intervals on twenty-one
-  indicators, and **Ask the council**: the swarm weighs the result with the province's residents as its society.
+The two speak the same file format. Every export here (experience with its true basis, the person-year panel,
+the burial society's model points, the economy, experiment results) is written in the open `scelo.exchange/1`
+layout (`src/shared/exchange.ts`): plain tables with a data dictionary and their provenance, so Scelo, R, Python
+or a spreadsheet can read them as they are.
 
-The contract is the Scelo exchange (`@scelo/core/exchange`); the Scelo manual's *Community Lab* pages describe it.
+## Build it yourself
+
+Prerequisites: [Bun](https://bun.sh) ≥ 1.1. On Linux, packaging a `.deb` also needs the usual
+[electron-builder prerequisites](https://www.electron.build/multi-platform-build).
+
+```bash
+git clone https://github.com/intelligentactuaries/community-lab.git
+cd community-lab
+bun install
+
+bun run dev                    # the dev pair: API on http://127.0.0.1:3040, UI on http://localhost:5195
+bun test                       # the engine's tests (determinism, bases, books, workspace safety, the sample)
+bun run typecheck
+
+bun run desktop:install        # the desktop app's own dependencies (Electron, electron-builder)
+bun run desktop:dev            # the desktop app against the source
+bun run desktop:dist:linux     # desktop/build/: the AppImage, the .deb and latest-linux.yml
+```
+
+`desktop:dist:win` and `desktop:dist:mac` build the other platforms (Bun cross-compiles the engine for any target;
+electron-builder is happiest on the target OS). Releases are built and attached by the workflows in
+`.github/workflows/`; [docs/RELEASING.md](docs/RELEASING.md) is the checklist.
+
+Other commands:
+
+```bash
+bun scripts/batch.ts --seeds 20 --years 30 --out data/batch.csv   # Monte Carlo from the command line
+bun scripts/calibrate.ts --fit             # re-derive the mortality presets from their targets
+bun scripts/smoke.ts 5                     # five simulated years, printed summary
+bun scripts/build-embed.ts                 # the engine for web pages (dist-embed/)
+```
 
 ## Repository layout
 
 ```
 src/sim/          the engine (pure TypeScript, no DOM): rng · time · types · params · mortality · fertility
-                  personality · population · world · institutions · schedule · movement · transit (buses, the
-                  Hyperline, the planes) · health · social · security · economy · demography · stats · weather
-                  engine · batch · shocks (a supplied basis, timed shocks) · experience (exposure rebuilt person by
-                  person, the panel, model points, the economy) · patch (parameters from outside) · experiment
-src/sim/layout/   the province's geography: emmaus (the original district, hand-drawn) · newhaven · ithemba
-                  unity (the centre and the highways) · hyperline (the guideway and its stations) · airport
-                  builders (the building types) · plots
-src/sim/finance/  accounts (double-entry core, statements, audit chain) · posting · tax (SARS) · bank
-                  (Mutual Bank) · macro · micro · index (the monthly step and hooks)
-src/shared/       narrative.ts — prompts for dialogue and interviews (used by browser and server); sceloExport.ts,
-                  templates.ts and council.ts — the exports, the lab's templates and the council's brief
-src/server/       Bun API: AI providers (Ollama default), streaming dialogue, Monte Carlo batches, experiments and
-                  pooled exports on a worker pool (pool.ts, worker.ts, jobs.ts), sqlite cache
-src/client/       React + custom CSS (Scelo theme): canvas renderer, panels, ECharts analytics; render3d/ the 3D
-                  close-up (people built per person from MakeHuman's parametric human: render3d/body/)
-scripts/          dev runner, batch, calibrate, smoke, screenshot, dialogue check; humans/ builds the people's
-                  kit from MakeHuman's CC0 data (fetch.ts, then build.py); poselab/ a bench for bodies and moves
+                  personality · population · world · institutions · schedule · movement · transit · health
+                  social · security · economy · demography · stats · weather · engine · batch · shocks
+                  experience · patch · experiment
+src/sim/layout/   the province's geography: emmaus · newhaven · ithemba · unity · hyperline · airport
+src/sim/finance/  accounts (double-entry, statements, audit chain) · posting · tax (SARS) · bank · macro · micro
+src/shared/       exchange (the data contract) · exports · templates · files (the workbench's formats)
+                  sample (the sample workspace) · mortalityCsv · narrative (dialogue prompts)
+src/server/       Bun API: AI providers (Ollama default), streaming dialogue, the worker pool's jobs
+                  (experiments, pooled exports, batches), the workspace (workspace.ts), sqlite
+src/client/       React + custom CSS: the province (canvas renderer, panels, ECharts analytics; render3d/ the 3D
+                  close-up) and the workbench (workbench/: Monaco, the script runtime, the console)
+src/embed/        the engine for web pages: a live province in a worker
+desktop/          the Electron app: main process, preload bridge, menus, the engine's supervisor, packaging
+brand/            the C₀.₁ mark and its generator
+scripts/          dev runner, batch, calibrate, smoke, screenshots, the embed build; humans/ builds the people's
+                  kit from MakeHuman's CC0 data
 tests/            bun test suite
-docs/             ODD.md (model description), ASSUMPTIONS.md (basis and provenance)
+docs/             ODD.md (model description), ASSUMPTIONS.md (basis and provenance), WORKBENCH.md, INSTALL.md,
+                  RELEASING.md
 ```
 
 ## Status and honesty
@@ -244,9 +294,29 @@ This is a v0.1 research instrument. Numbers marked *proxy* in the assumptions fi
 placeholders awaiting better sources; published numbers are cited by release. With ~360 residents every
 statistic is still noisy — the intervals say so — which is exactly why the Monte Carlo tab exists.
 
+## Reporting bugs, concerns and security issues
+
+- [GitHub Issues](https://github.com/intelligentactuaries/community-lab/issues) for reproducible bugs and requests.
+- **bugs@scelo.ai** for reports you would rather keep off the public tracker.
+- **scelo@intelligentactuaries.com** for general concerns.
+- Security vulnerabilities: please follow [SECURITY.md](SECURITY.md), not the public tracker.
+
 ## License
 
-Scelo IDE Source-Available License v1.1 (the same licence as Scelo). A project of Intelligent Actuaries (Pty) Ltd.
+[Scelo IDE Source-Available License v1.1](LICENSE), the same license as Scelo, word for word. A project of
+Intelligent Actuaries (Pty) Ltd.
+
+| Who you are | What you owe |
+|---|---|
+| Anyone using Community Lab IDE itself (install, modify, fork, distribute) | Nothing. Free for any purpose, including commercial. |
+| For each **Licensed Product** you build using it, on its first **ZAR 1,000,000** of lifetime Gross Revenue | Nothing. The first ZAR 1M per product is royalty-free. |
+| For each Licensed Product, on Gross Revenue above ZAR 1,000,000 lifetime | A flat **3%** royalty on the excess, annually in arrears, for the lifetime of that product. A [Commercial License](mailto:legal@intelligentactuaries.com) is available as an alternative. |
+| Anyone applying the published Nanoeconomics Methodology to **poverty-eradication work** | Free regardless of revenue, conditional on a public annual report to `scelo@intelligentactuaries.com` and `nanoeconomics@scelo.ai`. |
+| Anyone who misrepresents revenue, product boundaries, or carve-out eligibility | Auto-termination of the offending Product(s) and a back-charge, as the License sets out. |
+
+Read the full text: it covers attribution, royalty reporting, prohibited acts, the abuse remedy, the warranty
+disclaimer and the liability cap. Not legal advice: before relying on the license, consult counsel in your
+jurisdiction.
 
 The 3D people are made from [MakeHuman](http://www.makehumancommunity.org)'s assets (base mesh, targets,
 skeleton weights, clothes, hair, eyebrows, eyelashes, eyes and skins), released under CC0 1.0 by Data
@@ -260,3 +330,8 @@ colour uses the melanin and redness model of Unreal's hair shading, and their sk
 take their numbers from MetaHuman's materials and LOD settings. No engine code is included; the constants and
 the behaviour are reproduced in TypeScript (`src/client/lib/controls.ts`, `src/client/render3d/hair.ts`,
 `humans.ts`, `people3d.ts`). Unreal Engine and MetaHuman are trademarks of Epic Games, Inc.
+
+---
+
+<sub>Community Lab is a project of [Intelligent Actuaries (Pty) Ltd](https://intelligentactuaries.com). Public
+methodology, private mandate.</sub>
