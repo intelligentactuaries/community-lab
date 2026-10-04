@@ -89,7 +89,7 @@ export function TopBar({ info, aiBusy }: { info: ProvidersInfo | null; aiBusy: b
           }}
           title={`Export the province's data with its provenance (experience, the person-year panel, the burial society's book, the economy), or live it on a mortality table of your own${outside ? `. Living on ${outside}` : ''}`}
         >
-          <span className={`led ${outside ? 'busy' : ''}`} />
+          <span className={`led ${outside ? 'basis' : ''}`} />
           Exports{outside ? ' · basis' : ''}
         </span>
         <span className="chip" onClick={() => store.set('settingsOpen', true)} title={info ? (eff ? `${eff.provider} · ${eff.model}` : 'no AI provider — click to configure') : 'connecting to the API…'}>

@@ -5,8 +5,8 @@
 // while you are here (the top bar still plays and pauses it); running a
 // province file takes you back to it, rebuilt.
 
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { EXPERIMENT_SCHEMA_URI, type FileKind, type TreeEntry, fileKind, parseJsonText, runVerb } from '../../shared/files';
+import React, { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type FileKind, type TreeEntry, fileKind, parseJsonText, runVerb } from '../../shared/files';
 import { seedYears } from '../../shared/exchange';
 import { EChart } from '../charts/EChart';
 import { baseOption, chartTheme } from '../charts/theme';
@@ -142,16 +142,78 @@ export function Workbench() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  const [sizes, setSizes] = useSizes();
+  const gridRef = useRef<HTMLDivElement | null>(null);
   if (!ws.loaded) return <div className="workbench wb-loading muted">Opening the workspace…</div>;
   if (!ws.root) return <Welcome />;
   return (
-    <div className={`workbench ${ws.explorerOpen ? '' : 'no-explorer'} ${ws.panel ? '' : 'no-panel'}`}>
-      {ws.explorerOpen && <Explorer />}
+    <div ref={gridRef} className={`workbench ${ws.explorerOpen ? '' : 'no-explorer'} ${ws.panel ? '' : 'no-panel'}`} style={{ '--wb-explorer': `${sizes.explorer}px`, '--wb-panel': `${sizes.panel}%` } as React.CSSProperties}>
+      {ws.explorerOpen && <Explorer splitter={<Splitter axis="x" grid={gridRef} onDrag={(x) => setSizes({ ...sizes, explorer: Math.round(Math.max(180, Math.min(520, x))) })} />} />}
       <EditorArea />
-      {ws.panel && <BottomPanel />}
+      {ws.panel && (
+        <BottomPanel
+          splitter={
+            <Splitter
+              axis="y"
+              grid={gridRef}
+              // The panel's row is a share of the whole grid (the status bar's 24 px included): from the pointer down to the status bar.
+              onDrag={(y, h) => setSizes({ ...sizes, panel: Math.max(14, Math.min(72, Math.round(((h - 24 - y) / h) * 1000) / 10)) })}
+            />
+          }
+        />
+      )}
       <StatusBar />
       {ws.closing && <CloseDialog path={ws.closing} />}
     </div>
+  );
+}
+
+// ── resizing: the explorer's width and the panel's height, dragged and remembered ──
+
+const SIZES_KEY = 'community-lab:workbench-sizes:v1';
+function useSizes(): [{ explorer: number; panel: number }, (s: { explorer: number; panel: number }) => void] {
+  const [sizes, setSizes] = useState<{ explorer: number; panel: number }>(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(SIZES_KEY) ?? '{}') as { explorer?: number; panel?: number };
+      return { explorer: typeof s.explorer === 'number' ? s.explorer : 252, panel: typeof s.panel === 'number' ? s.panel : 34 };
+    } catch {
+      return { explorer: 252, panel: 34 };
+    }
+  });
+  const save = (s: { explorer: number; panel: number }) => {
+    setSizes(s);
+    try {
+      localStorage.setItem(SIZES_KEY, JSON.stringify(s));
+    } catch {
+      /* no storage */
+    }
+  };
+  return [sizes, save];
+}
+
+/** A divider to drag. x: the pointer's distance from the grid's left edge; y: from its top, with the grid's height. */
+function Splitter({ axis, grid, onDrag }: { axis: 'x' | 'y'; grid: React.RefObject<HTMLDivElement | null>; onDrag: (pos: number, size: number) => void }) {
+  return (
+    <div
+      className={`wb-splitter ${axis}`}
+      role="separator"
+      aria-orientation={axis === 'x' ? 'vertical' : 'horizontal'}
+      onPointerDown={(e) => {
+        const el = grid.current;
+        if (!el) return;
+        e.preventDefault();
+        const r = el.getBoundingClientRect();
+        const move = (ev: PointerEvent) => (axis === 'x' ? onDrag(ev.clientX - r.left, r.width) : onDrag(ev.clientY - r.top, r.height));
+        const up = () => {
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', up);
+          document.body.classList.remove('wb-dragging', axis);
+        };
+        document.body.classList.add('wb-dragging', axis);
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', up);
+      }}
+    />
   );
 }
 
@@ -239,7 +301,7 @@ function Welcome() {
 
 // ── explorer ────────────────────────────────────────────────────────────
 
-function Explorer() {
+function Explorer({ splitter }: { splitter?: ReactNode }) {
   const ws = useWorkspace();
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -247,6 +309,7 @@ function Explorer() {
   const d = desktop();
   return (
     <aside className="wb-explorer">
+      {splitter}
       <div className="wb-explorer-head">
         <span className="panel-label" title={ws.root ?? ''}>
           {ws.name}
@@ -706,12 +769,13 @@ function CloseDialog({ path }: { path: string }) {
 
 // ── Console and Problems ────────────────────────────────────────────────
 
-function BottomPanel() {
+function BottomPanel({ splitter }: { splitter?: ReactNode }) {
   const ws = useWorkspace();
   const errors = ws.problems.filter((p) => p.severity === 'error').length;
   const warnings = ws.problems.filter((p) => p.severity === 'warning').length;
   return (
     <section className="wb-panel">
+      {splitter}
       <div className="wb-panel-head">
         <button type="button" className={`wb-ptab ${ws.panel === 'console' ? 'on' : ''}`} onClick={() => workspace.setPanel('console')}>
           Console
@@ -939,5 +1003,3 @@ function StatusBar() {
 }
 
 export default Workbench;
-// The schema URIs are referenced so the editor's JSON service can map files to them.
-void EXPERIMENT_SCHEMA_URI;
