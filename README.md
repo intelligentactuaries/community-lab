@@ -15,7 +15,6 @@ against it. It runs offline; a local model scripts the conversations.
 ![Bun 1.1+](https://img.shields.io/badge/Bun-1.1%2B-181715?style=flat-square&logo=bun&logoColor=white)
 ![Electron 33](https://img.shields.io/badge/Electron-33-45423D?style=flat-square&logo=electron&logoColor=white)
 ![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-45423D?style=flat-square&logo=typescript&logoColor=white)
-![pooled A/E 1.00](https://img.shields.io/badge/pooled_A%2FE-1.00-26714C?style=flat-square)
 ![Heligman-Pollard](https://img.shields.io/badge/mortality-Heligman--Pollard-345DCB?style=flat-square)
 ![Ollama gpt-oss](https://img.shields.io/badge/dialogue-Ollama_gpt--oss-8E5823?style=flat-square)
 ![ODD documented](https://img.shields.io/badge/documented-ODD_protocol-605A51?style=flat-square)
@@ -170,7 +169,7 @@ a Laffer curve. None of it clutters the village: two tiles open one workspace.
   ART era) and a Stats SA 2024-calibrated table; fertility is an ASFR schedule scaled to the published TFR.
   See [`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md) for every number and its provenance.
 * **Experience analysis.** Person-years of exposure and expected deaths accrue daily by age band and sex;
-  the analytics drawer shows A/E with Poisson 95 % intervals, survival curves (basis vs experience-adjusted),
+  the analytics drawer shows A/E with 95 % intervals (the normal approximation to the Poisson), survival curves (basis vs experience-adjusted),
   realised ASFR/TFR and a births A/E, deaths by cause and band, illness seasonality.
 * **Risk theory in miniature.** A community burial society with funeral and life cover: premiums in, claims
   out, the reserve's surplus path and a ruin flag. The Monte Carlo tab runs N seeds × Y years on the server
@@ -192,9 +191,11 @@ a Laffer curve. None of it clutters the village: two tiles open one workspace.
   ISAPs, ASSA's SAP 901, SAP 201, APN 105 and APN 207, the Acts).
 * **Reproducibility.** Named RNG streams (common random numbers): change one assumption and only that
   process's draws change. Same seed, same village, same history — on Bun, in the browser, in a worker.
-* **Calibrated, and flat by age.** Individual risk multipliers are normalised within each age band and the
-  table share falls with age as modelled illness deaths rise, so the pooled A/E under the default basis is
-  ≈ 1.0 and flat from 35 to 85+ (verified across fresh seeds; see `docs/ASSUMPTIONS.md`).
+* **Experience, measured against its basis.** Individual risk multipliers are normalised within each age band
+  and the table share falls with age as modelled illness deaths rise. Those constants were fitted when the
+  community was a single village and have not yet been refitted for the province: pooled over many seeds, the
+  province's A/E on the default basis is about 0.85, close to 1 below 45 and about 0.7 from 75 (measured on
+  0.1.0; the figures are in `docs/ASSUMPTIONS.md`).
 * **Accounting-standard records.** Every economic event is a balanced journal entry on a standard chart of
   accounts; statements are presented on IFRS for SMEs lines; the general journal is hash-chained and the
   audit section re-verifies it. Tax follows the SARS 2026/27 tables (Budget 2026), the UIF and SDL Acts, the
@@ -297,7 +298,7 @@ manual/           the user manual (MkDocs Material), published at docs.intellige
 ## Status and honesty
 
 This is a v0.1 research instrument. Numbers marked *proxy* in the assumptions file are reasoned
-placeholders awaiting better sources; published numbers are cited by release. With ~360 residents every
+placeholders awaiting better sources; published numbers are cited by release. With about 400 residents every
 statistic is still noisy — the intervals say so — which is exactly why the Monte Carlo tab exists.
 
 ## Reporting bugs, concerns and security issues
