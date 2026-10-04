@@ -15,6 +15,7 @@ import { navState } from './lib/controls';
 import { aiStatus } from './lib/dialogue';
 import { store, useStore } from './lib/simStore';
 import { desktop } from './workbench/desktop';
+import { workspace } from './workbench/workspace';
 
 // The workbench (Monaco, the script runtime) loads the first time it is opened.
 const Workbench = lazy(() => import('./workbench/Workbench'));
@@ -33,6 +34,11 @@ export function App() {
       alive = false;
       clearInterval(t);
     };
+  }, []);
+  // The open workspace is known from the start, so the province's exports and the lab can save into it before the
+  // workbench has been opened.
+  useEffect(() => {
+    void workspace.refresh();
   }, []);
   // The desktop app's menus and accelerators arrive as commands.
   useEffect(() => {
