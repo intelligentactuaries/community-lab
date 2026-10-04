@@ -745,8 +745,9 @@ kbd { font-family: var(--font); font-size: 10.5px; padding: 1px 6px; border: 1px
 .wb-grid th { position: sticky; top: 0; background: var(--bg-2); color: var(--muted); font-weight: 500; text-align: left; padding: 5px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .wb-grid td { padding: 3px 12px; border-bottom: 1px solid var(--grid); white-space: nowrap; color: var(--fg); }
 .wb-grid td.n, .wb-grid th.n { text-align: right; }
-.wb-c-plot { width: min(720px, 100%); height: 260px; margin: 8px 0; padding: 8px; border: 1px solid var(--grid); border-radius: 8px; background: var(--bg-2); }
-.wb-c-chart { width: 100%; height: 100%; }
+.wb-c-plot { display: flex; flex-direction: column; width: min(720px, 100%); height: 280px; margin: 8px 0; padding: 10px 10px 8px; border: 1px solid var(--grid); border-radius: 8px; background: var(--bg-2); }
+.wb-c-plot figcaption { font-size: 12px; font-weight: 500; color: var(--fg); padding: 0 2px 4px; }
+.wb-c-chart { flex: 1; min-height: 0; width: 100%; }
 .wb-c-progress { display: grid; grid-template-columns: minmax(0, 1fr) 180px auto; align-items: center; gap: 10px; margin: 4px 0; }
 .wb-c-progress.finished .progress i { background: var(--muted); }
 .wb-c-done { margin: 4px 0 2px; font-size: 12px; }

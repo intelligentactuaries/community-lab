@@ -889,11 +889,19 @@ function ConsoleLine({ e }: { e: ConsoleEntry }) {
 }
 
 function ConsoleTable({ rows, columns }: { rows: Row[]; columns: string[] }) {
+  // A column of numbers is set right, its header with it.
+  const numeric = new Set(columns.filter((c) => rows.some((r) => typeof r[c] === 'number') && rows.every((r) => r[c] === null || r[c] === undefined || typeof r[c] === 'number')));
   return (
     <div className="wb-c-table scroll">
       <table className="wb-grid">
         <thead>
-          <tr>{columns.map((c) => <th key={c}>{c}</th>)}</tr>
+          <tr>
+            {columns.map((c) => (
+              <th key={c} className={numeric.has(c) ? 'n' : ''}>
+                {c}
+              </th>
+            ))}
+          </tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
@@ -918,9 +926,8 @@ function ConsolePlot({ spec }: { spec: PlotSpec }) {
   const names = Object.keys(spec.series);
   const option = {
     ...base,
-    title: spec.title ? { text: spec.title, left: 0, top: 0, textStyle: { color: th.fg, fontSize: 12, fontWeight: 500, fontFamily: th.font } } : undefined,
     legend: names.length > 1 ? { ...base.legend, top: 0, right: 0 } : { show: false },
-    grid: { left: 10, right: 20, top: spec.title || names.length > 1 ? 30 : 12, bottom: spec.xLabel ? 22 : 8, containLabel: true },
+    grid: { left: 10, right: 20, top: spec.yLabel || names.length > 1 ? 28 : 12, bottom: spec.xLabel ? 22 : 8, containLabel: true },
     xAxis: numericX ? { ...base.xAxis, type: 'value', name: spec.xLabel, nameLocation: 'middle', nameGap: 24, min: 'dataMin', max: 'dataMax' } : { ...base.xAxis, type: 'category', data: spec.x, name: spec.xLabel, nameLocation: 'middle', nameGap: 24 },
     yAxis: { ...base.yAxis, type: spec.log ? 'log' : 'value', name: spec.yLabel, nameTextStyle: { color: th.muted, fontSize: 10 }, scale: !spec.log },
     series: names.map((name, i) => ({
@@ -936,9 +943,10 @@ function ConsolePlot({ spec }: { spec: PlotSpec }) {
     })),
   };
   return (
-    <div className="wb-c-plot">
+    <figure className="wb-c-plot">
+      {spec.title && <figcaption>{spec.title}</figcaption>}
       <EChart option={option} className="wb-c-chart" />
-    </div>
+    </figure>
   );
 }
 

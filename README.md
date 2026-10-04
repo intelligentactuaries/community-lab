@@ -83,6 +83,10 @@ table(rows);
 plot({ x: rows.map((r) => r.age), series: { 'A/E': rows.map((r) => r.deaths / r.expected_deaths) } });
 ```
 
+<img src="docs/media/workbench.png" alt="The workbench: the sample workspace in the explorer, scripts/ae-by-age.js in the editor, and below it the Console with the script's table of deaths, person-years and expected deaths by ten-year band and its plot of actual over expected" width="100%">
+
+<sub>The workbench after running the sample's <code>scripts/ae-by-age.js</code>: five simulated years of a province of the script's own, A/E by ten-year band in the Console, the table saved to <code>results/</code>. One province is about four hundred people, so the bands are noisy; <code>pooled-experience.js</code> pools sixteen seeds on the worker pool instead.</sub>
+
 File › New Workspace writes a sample to start from: four provinces, two experiments, four scripts and a mortality
 table, every one runnable. [docs/WORKBENCH.md](docs/WORKBENCH.md) is the full reference: both file formats, the
 script API, and the shortcuts.
