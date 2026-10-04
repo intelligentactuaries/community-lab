@@ -26,7 +26,8 @@ on the site needs editing for a new version.
    Each one smoke-tests the engine inside its package before it uploads, and keeps a screenshot and the logs as a
    workflow artifact. `-f ref=<sha>` builds a later commit of the same version (a platform-only fix).
    The Linux installers may instead be built on a workstation (step 2) and uploaded with
-   `gh release upload community-lab-v0.1.0 desktop/build/Community-Lab-IDE-0.1.0-{x86_64.AppImage,x86_64.AppImage.blockmap,amd64.deb} desktop/build/latest-linux.yml`.
+   `gh release upload community-lab-v0.1.0 desktop/build/Community-Lab-IDE-0.1.0-{x86_64.AppImage,amd64.deb} desktop/build/latest-linux.yml`
+   (the AppImage carries its blockmap inside it).
    `latest-linux.yml` must name the AppImage exactly as uploaded, which is why the artifact names are hyphenated.
 5. **The website**: intelligentactuaries.com/community-lab picks the release up within minutes (it re-resolves
    the release list in the visitor's browser); refresh its baked fallback with `bun run refresh-downloads` in the

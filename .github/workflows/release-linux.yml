@@ -98,9 +98,9 @@ jobs:
           VERSION: ${{ steps.v.outputs.version }}
         run: |
           sha256sum Community-Lab-IDE-"$VERSION"-*.{AppImage,deb}
+          # The AppImage's blockmap is inside the file (latest-linux.yml gives its size), so there is no .blockmap to upload.
           gh release upload "$TAG" \
             "Community-Lab-IDE-$VERSION-x86_64.AppImage" \
-            "Community-Lab-IDE-$VERSION-x86_64.AppImage.blockmap" \
             "Community-Lab-IDE-$VERSION-amd64.deb" \
             latest-linux.yml \
             --clobber --repo "$GITHUB_REPOSITORY"
