@@ -13,12 +13,16 @@ import { availableParallelism } from 'node:os';
 import type { Task, TaskMessage, TaskReply } from './worker';
 
 /** Where the worker script is. Inside a `bun build --compile` executable the
- *  worker is an extra entry point addressed by its relative name (and the
- *  embedded file system shows in import.meta.url); from source, by its
- *  absolute URL, since a relative name would resolve against the working
- *  directory, which the IDE sets to the data folder. */
+ *  worker is an extra entry point addressed by its source name, './worker.ts',
+ *  and the main module's path shows the embedded file system: /$bunfs/root/ on
+ *  Linux and macOS, B:\~BUN\root\ on Windows. (Test the path, not
+ *  import.meta.url: on Windows the URL spells the tilde %7E, so a test of the
+ *  URL never matched there, and the pool asked for the source-tree URL on the
+ *  embedded drive, which is not found.) From source, by its absolute URL,
+ *  since a relative name would resolve against the working directory, which
+ *  the IDE sets to the data folder. */
 function workerSpecifier(): string {
-  return /\$bunfs|~BUN/.test(import.meta.url) ? './worker.ts' : new URL('./worker.ts', import.meta.url).href;
+  return /\$bunfs|~BUN/.test(import.meta.path) ? './worker.ts' : new URL('./worker.ts', import.meta.url).href;
 }
 
 interface Pending {
