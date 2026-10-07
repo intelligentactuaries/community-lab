@@ -2,7 +2,7 @@
   "name": "community-lab-ide",
   "version": "0.1.0",
   "private": true,
-  "description": "Community Lab IDE: an independent desktop IDE for actuarial agent-based simulation. A province where every person is an agent, on published South African bases, with double-entry books, a burial society, paired experiments on a local worker pool and a workbench of scenario, experiment and script files. Runs offline; a local model scripts the conversations.",
+  "description": "Community Lab IDE: a desktop IDE for actuarial agent-based simulation, in a South African province where every person is an agent. Runs offline.",
   "homepage": "https://intelligentactuaries.com/community-lab",
   "author": {
     "name": "Intelligent Actuaries",
