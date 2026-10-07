@@ -119,6 +119,13 @@ jobs:
           foreach ($f in "server\community-lab-server.exe", "server\ui\index.html", "app.asar", "LICENSE.txt") {
             if (-not (Test-Path (Join-Path $res $f))) { throw "installed app is missing $f" }
           }
+          # The taskbar shows the icon of the shortcut the app was started from. In 0.1.0 a description longer than
+          # Windows allows corrupted the shortcuts, and the taskbar showed a blank page instead of the icon.
+          $lnk = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Community Lab IDE.lnk"
+          if (-not (Test-Path $lnk)) { throw "the installer made no Start menu shortcut" }
+          $icon = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk).IconLocation
+          if ($icon -ne "$($app.FullName),0") { throw "the Start menu shortcut's icon is '$icon', not the app's" }
+          "shortcut icon: $icon"
           "APP=$($app.FullName)" >> $env:GITHUB_ENV
 
       - name: Launch the installed app and look
