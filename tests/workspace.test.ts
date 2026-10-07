@@ -3,7 +3,7 @@
 // workspace is written whole. And the sample itself: every province, experiment, table and script in it is one
 // the engine accepts as written.
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, rmdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseExperimentFile, parseJsonText, parseProvinceFile } from '../src/shared/files';
@@ -58,12 +58,15 @@ describe('the workspace on disk', () => {
     const outside = join(base, 'outside');
     mkdirSync(outside, { recursive: true });
     writeFileSync(join(outside, 'secret.txt'), 'no');
-    symlinkSync(outside, join(root, 'link'));
+    // A junction on Windows: it needs neither admin rights nor Developer Mode, as a directory symlink does.
+    symlinkSync(outside, join(root, 'link'), 'junction');
     expect(() => resolveInRoot(root, 'link/secret.txt')).toThrow();
     expect(() => resolveInRoot(root, 'link/new.txt', false)).toThrow();
     const read = await call('GET', '/api/workspace/file', undefined, '?path=link/secret.txt');
     expect(read.status).toBe(400);
-    rmSync(join(root, 'link'));
+    // Windows removes a junction as a directory; rm() fails on it (EFAULT).
+    if (process.platform === 'win32') rmdirSync(join(root, 'link'));
+    else rmSync(join(root, 'link'));
   });
 
   test('a save names the version it read; a newer file on disk is a conflict, not an overwrite', async () => {
