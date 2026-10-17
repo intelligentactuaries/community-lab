@@ -18,6 +18,7 @@ import { validatePlan } from '../sim/plan/validate';
 import type { WorldPlan } from '../sim/plan/types';
 import { router } from './llm/router';
 import type { CloudProvider, Message, ProviderPrefs } from './llm/types';
+import { hostRefusal, isJsonContentType } from './httpGuard';
 import { pool } from './pool';
 import { workspaceRoutes } from './workspace';
 
@@ -36,13 +37,9 @@ function allowedOrigin(origin: string | null): string | null {
   if (!origin) return null;
   return LOCAL_ORIGIN.test(origin) ? origin : null;
 }
-// And the name the request was addressed to must be this machine's loopback: a page on another site that has
-// pointed its own domain at 127.0.0.1 (DNS rebinding) is same-origin with itself and would pass a CORS check, but it
-// cannot make the browser send a loopback Host header.
-const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
-function loopbackHost(req: Request): boolean {
-  return LOCAL_HOST.test(req.headers.get('host') ?? '');
-}
+// And the name the request was addressed to must be this machine's loopback, the page and the API alike
+// (httpGuard.ts): a page on another site that has pointed its own domain at 127.0.0.1 (DNS rebinding) is same-origin
+// with itself and would pass a CORS check, but it cannot make the browser send a loopback Host header.
 function withCors(req: Request, res: Response): Response {
   const origin = allowedOrigin(req.headers.get('origin'));
   if (!origin) return res;
@@ -267,7 +264,8 @@ const server = Bun.serve({
   idleTimeout: 255,
   async fetch(req) {
     const url = new URL(req.url);
-    if (url.pathname.startsWith('/api/') && !loopbackHost(req)) return json({ error: 'requests must be addressed to this machine (localhost)' }, { status: 421 });
+    const refused = hostRefusal(req);
+    if (refused) return refused;
     if (req.method === 'OPTIONS' && url.pathname.startsWith('/api/')) {
       const origin = allowedOrigin(req.headers.get('origin'));
       if (!origin) return new Response(null, { status: 403 });
@@ -282,7 +280,8 @@ const server = Bun.serve({
         },
       });
     }
-    if ((req.method === 'POST' || req.method === 'PUT') && url.pathname.startsWith('/api/') && !(req.headers.get('content-type') ?? '').includes('application/json')) {
+    // The media type itself, not a substring: "text/plain; x=application/json" is text/plain to a browser (httpGuard.ts).
+    if ((req.method === 'POST' || req.method === 'PUT') && url.pathname.startsWith('/api/') && !isJsonContentType(req.headers.get('content-type'))) {
       return withCors(req, json({ error: 'POST and PUT bodies must be application/json' }, { status: 415 }));
     }
     for (const r of routes) {
