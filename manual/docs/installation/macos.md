@@ -20,7 +20,7 @@ or try to open it once, then go to **System Settings › Privacy & Security** an
 To check the download first, compare its checksum with the SHA-256 in the release notes:
 
 ```bash
-shasum -a 256 Community-Lab-IDE-0.1.0-arm64.dmg
+shasum -a 256 Community-Lab-IDE-1.0.0-arm64.dmg
 ```
 
 ## Updating

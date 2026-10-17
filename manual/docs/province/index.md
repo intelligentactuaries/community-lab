@@ -29,13 +29,15 @@ From left to right:
 
 | Control | What it does |
 |---|---|
-| The C₀.₁ mark | The app and its version. |
+| The C₁.₀ mark | The app and its version. |
+| *· Unity Province* | The world on screen: the province, or the name of a world built in the [Community Builder](../builder/index.md). |
 | **Province · Workbench** | Switches views (<kbd>Ctrl</kbd>+<kbd>1</kbd>, <kbd>Ctrl</kbd>+<kbd>2</kbd>). |
 | **The clock** | The date, the time and today's weather. Click it to [set the scene](time.md#setting-the-scene): jump to a moment, a date or a season, or force the weather. A *forced* badge shows when the weather is forced. |
 | **Rewind** | Rebuilds the province at day 0 on the same seed and basis. |
 | **Play / pause** | <kbd>Space</kbd>. The province starts paused. |
 | **Step** | Pauses and moves on one simulated hour. |
 | **Speed** | From real time to a year a second; keys <kbd>1</kbd> to <kbd>0</kbd>. A field beside it takes any number of simulated years a minute. See [Time and the clock](time.md). |
+| **Build** | Opens the [Community Builder](../builder/index.md): build or change a community, then run it. |
 | **Exports** | The province's data with its provenance, and importing a mortality table. Reads *Exports · basis* while the province lives on a table of your own or a stress. See [Exports and data](../exports/index.md). |
 | **The model chip** | The language model that scripts conversations, and the dialogue mode. Click it for Settings. Its light shows whether a model is ready, is writing, or cannot be reached. |
 | **Settings**, **Help** | Settings (<kbd>Ctrl</kbd>+<kbd>,</kbd> in the desktop app) and the in-app help (<kbd>?</kbd>). |

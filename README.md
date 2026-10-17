@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img src="brand/community-lab_C0_1.svg" alt="Community Lab" width="120" />
+    <img src="brand/community-lab_C1_0.svg" alt="Community Lab" width="120" />
   </picture>
 
 # Community Lab IDE
@@ -9,8 +9,8 @@
 
 An independent desktop IDE for actuarial agent-based simulation: a small South African province where every
 person is an agent living on published mortality and fertility bases, every rand is posted to double-entry books,
-a burial society carries the risk, and a workbench of files runs provinces, paired experiments and scripts
-against it. It runs offline; a local model scripts the conversations.
+a burial society carries the risk, the Community Builder makes communities of your own to run beside it, and a
+workbench of files runs provinces, paired experiments and scripts against them. It runs offline; a local model scripts the conversations.
 
 ![Bun 1.1+](https://img.shields.io/badge/Bun-1.1%2B-181715?style=flat-square&logo=bun&logoColor=white)
 ![Electron 33](https://img.shields.io/badge/Electron-33-45423D?style=flat-square&logo=electron&logoColor=white)
@@ -66,6 +66,9 @@ time to thirty years a minute.
 
 **The workbench** is the IDE around it: a folder of files you choose (a *workspace*), an editor that knows their
 shapes, and a run for each kind of file.
+
+**Build**, in the top bar, opens the Community Builder over both: lay out a community of your own, or change the
+province, and run it in their place (see [Build your own community](#build-your-own-community)).
 
 | File | What running it does (Ctrl+Enter) |
 |---|---|

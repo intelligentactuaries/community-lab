@@ -34,6 +34,13 @@
       risk, and the analytics measure actual against expected experience.
     </p>
     <p>
+      The Community Builder makes other worlds: place homes, churches,
+      schools, clinics, shops, banks and roads, mark out settlements and
+      cities with their wealth, check that the world can run, and run it, with
+      every analysis of the province working on it. Worlds are kept as .sce
+      files.
+    </p>
+    <p>
       A workbench keeps provinces, paired experiments and scripts as files in
       a folder: run a province on a new basis, put an experiment on the local
       worker pool with common random numbers and 95% intervals, or script the
@@ -65,6 +72,17 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.0" date="2026-10-17">
+      <description>
+        <p>
+          Community Lab 1.0: the Community Builder. Build a community from a
+          blank canvas, from the town of Masakhane or from the province
+          itself, check it, run it, and keep it as a .sce file. The
+          dashboards cover the stage while they are open, the engine answers
+          on this machine's loopback names only, and a crash offers a reload.
+        </p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-10-04">
       <description>
         <p>

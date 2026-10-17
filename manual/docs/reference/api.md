@@ -14,7 +14,7 @@ which); from source, at 3040.
 
 ```bash
 curl -s http://127.0.0.1:3040/api/health
-# {"ok":true,"app":"community-lab","edition":"ide","exchange":1,"time":…,"version":"0.1.0"}
+# {"ok":true,"app":"community-lab","edition":"ide","exchange":1,"time":…,"version":"1.0.0"}
 ```
 
 ## Jobs on the worker pool
@@ -32,6 +32,19 @@ curl -s http://127.0.0.1:3040/api/health
 | `GET /api/batch/:id`, `GET /api/batch/:id/csv` | Its progress and summary; its runs as CSV. |
 | `GET /api/exchange` | The format's version, the indicators, the templates and the worker pool's size and load. |
 | `GET /api/templates/:id?years=10` | One of the lab's templates as a spec. |
+
+An experiment or a pooled export runs in the province unless its body carries a `world`: a world built in the
+[Community Builder](../builder/index.md), as its `.sce` file's JSON. A world that cannot run yet is refused with
+the first of its checks' errors.
+
+## Saved worlds
+
+| Method and path | What it does |
+|---|---|
+| `GET /api/plans` | The worlds saved from the builder, newest first, with a few counts each. |
+| `GET /api/plans/:id` | One world. |
+| `PUT /api/plans/:id` | Save a world (the body is the world, as JSON; its `id` must match the address). |
+| `DELETE /api/plans/:id` | Delete a saved world's file. |
 
 Poll a job's `GET` until its `status` is `done` (or `error`, or `cancelled`); `done` and `total` count runs.
 

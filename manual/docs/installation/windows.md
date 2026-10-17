@@ -18,7 +18,7 @@ The installer is not code-signed yet, so Microsoft Defender SmartScreen warns th
 To check the download first, compare its checksum with the SHA-256 in the release notes. In PowerShell:
 
 ```powershell
-Get-FileHash .\Community-Lab-IDE-0.1.0-x64.exe -Algorithm SHA256
+Get-FileHash .\Community-Lab-IDE-1.0.0-x64.exe -Algorithm SHA256
 ```
 
 ## Updating

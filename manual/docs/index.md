@@ -66,11 +66,12 @@ from the level of the person.
 | [Installation](installation/index.md) | Linux, Windows and macOS, and what happens at first launch |
 | [Getting started](getting-started.md) | A first hour, end to end |
 | [The province](province/index.md) | The map, time, the inspector, conversations, the 3D close-up, the scenario |
+| [The Community Builder](builder/index.md) | Building your own community, checking it, running it, and keeping it as a `.sce` file |
 | [Analytics](analytics/index.md) | Every tab of the drawer, the actuarial workbench, the lab, Monte Carlo |
 | [The workbench](workbench/index.md) | Workspaces, province files, experiment files, scripts and their API |
 | [Exports and data](exports/index.md) | What goes out, and the format it goes out in |
 | [The model](model/index.md) | How the province works, its calibration and limits, the model description and every assumption |
 | [Reference](reference/index.md) | Basis parameters, indicators, templates, shortcuts, settings, files, the API, troubleshooting, building from source, the license, what is new |
 
-This manual describes **Community Lab IDE 0.1.0**, licensed under the [Scelo IDE Source-Available License
+This manual describes **Community Lab IDE 1.0.0**, licensed under the [Scelo IDE Source-Available License
 v1.1](license.md).

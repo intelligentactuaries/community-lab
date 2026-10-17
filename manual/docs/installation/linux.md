@@ -10,7 +10,7 @@ For Ubuntu 22.04 or later and Debian 12 or later. Download `Community-Lab-IDE-<v
 with `apt`, which also fetches anything it depends on:
 
 ```bash
-sudo apt install ./Community-Lab-IDE-0.1.0-amd64.deb
+sudo apt install ./Community-Lab-IDE-1.0.0-amd64.deb
 ```
 
 Start it from your applications (**Community Lab IDE**) or from a terminal:
@@ -34,7 +34,7 @@ Ubuntu's App Center calls a package installed this way "third party". To check t
 published, compare its checksum with the SHA-256 in the release notes:
 
 ```bash
-sha256sum Community-Lab-IDE-0.1.0-amd64.deb
+sha256sum Community-Lab-IDE-1.0.0-amd64.deb
 ```
 
 ### Updating and removing
@@ -53,8 +53,8 @@ Neither touches your workspaces or the app's data folder (see [Files and environ
 For any recent x64 distribution. Make it executable and run it:
 
 ```bash
-chmod +x Community-Lab-IDE-0.1.0-x86_64.AppImage
-./Community-Lab-IDE-0.1.0-x86_64.AppImage
+chmod +x Community-Lab-IDE-1.0.0-x86_64.AppImage
+./Community-Lab-IDE-1.0.0-x86_64.AppImage
 ```
 
 ### FUSE 2

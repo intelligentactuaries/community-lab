@@ -10,7 +10,7 @@ downloaded when it runs.
 **The .deb** (Ubuntu 22.04 and later, Debian 12 and later, x64):
 
 ```bash
-sudo apt install ./Community-Lab-IDE-0.1.0-amd64.deb
+sudo apt install ./Community-Lab-IDE-1.0.0-amd64.deb
 ```
 
 `apt` pulls in what it needs. It also installs an AppArmor profile, `/etc/apparmor.d/community-lab-ide`, which
@@ -22,8 +22,8 @@ verify it. Remove it with `sudo apt remove community-lab-ide` (`purge` also remo
 **The AppImage** (any recent x64 distribution):
 
 ```bash
-chmod +x Community-Lab-IDE-0.1.0-x86_64.AppImage
-./Community-Lab-IDE-0.1.0-x86_64.AppImage
+chmod +x Community-Lab-IDE-1.0.0-x86_64.AppImage
+./Community-Lab-IDE-1.0.0-x86_64.AppImage
 ```
 
 It needs FUSE 2, which Ubuntu 22.04 and later no longer install by default: if it exits with a `libfuse.so.2`
@@ -34,14 +34,14 @@ itself from the Releases tab: it checks a little after it starts and asks before
 
 ## Windows
 
-Run `Community-Lab-IDE-0.1.0-x64.exe` (Windows 10 or 11, x64). It installs for your user, with a Start menu and a
+Run `Community-Lab-IDE-1.0.0-x64.exe` (Windows 10 or 11, x64). It installs for your user, with a Start menu and a
 desktop shortcut, and you may choose the folder. The installer is not code-signed yet, so SmartScreen warns on
 first launch: **More info → Run anyway**. Uninstall it from Settings › Apps. To update, install the newer release
 over it.
 
 ## macOS
 
-Open `Community-Lab-IDE-0.1.0-arm64.dmg` and drag Community Lab IDE into Applications (macOS 14 or later, Apple
+Open `Community-Lab-IDE-1.0.0-arm64.dmg` and drag Community Lab IDE into Applications (macOS 14 or later, Apple
 Silicon; there is no Intel build). The app is not notarised yet, so clear the download's quarantine flag once:
 
 ```bash

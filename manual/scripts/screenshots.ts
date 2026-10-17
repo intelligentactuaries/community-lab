@@ -180,7 +180,9 @@ if (!ONLY || ONLY.has('lab')) {
   await shot('lab', { settle: 1500 });
 }
 
-// Settings, on the default theme (the province's daylight; it is morning, so light).
+// Settings, on the default theme (the province's daylight): the clock is moved on to the next morning first, so it
+// is light whatever hour the shots above ended at.
+await run(`s.pause(); s.jumpBy(((9 * 60 + 30) - s.sim.world.minuteOfDay + 1440) % 1440);`);
 await page.evaluate(() => {
   localStorage.removeItem('ia.theme');
   window.dispatchEvent(new CustomEvent('ia:theme-change'));

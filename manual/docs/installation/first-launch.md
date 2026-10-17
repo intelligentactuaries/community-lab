@@ -2,7 +2,7 @@
 
 ## What happens when it opens
 
-Community Lab IDE opens on a launch screen (the C₀.₁ mark, *Starting the engine*) while it starts its **engine**:
+Community Lab IDE opens on a launch screen (the C₁.₀ mark, *Starting the engine*) while it starts its **engine**:
 the simulation server, bundled inside the app, on a port of this machine only (3040, or the next free one up to
 3240). When the engine answers, the screen reads *Building Unity Province* and the app opens on the **province**:
 the default province, at dawn on its first day, **paused**.

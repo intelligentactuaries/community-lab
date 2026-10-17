@@ -13,7 +13,7 @@ extra_css:
 theme:
   name: material
   language: en
-  # The C₀.₁ mark (brand/generate_logo.py). The masthead is dark in both
+  # The C₁.₀ mark (brand/generate_logo.py). The masthead is dark in both
   # schemes, so the header logo is the cream variant; the favicon follows
   # the OS, the way a browser tab should. Same arrangement as the Scelo docs.
   logo: assets/img/community-lab-mark-cream.svg
@@ -104,6 +104,7 @@ nav:
       - Conversations: province/conversations.md
       - The 3D close-up: province/3d.md
       - Scenario and basis: province/scenario.md
+  - The Community Builder: builder/index.md
   - Analytics:
       - analytics/index.md
       - Population, health and safety: analytics/population.md

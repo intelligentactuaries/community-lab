@@ -30,6 +30,13 @@ in a field.
 
 With the numpad's NumLock on, its digits also change the speed.
 
+## The Community Builder
+
+The builder has keys of its own, listed on [its page](../builder/index.md#keys): <kbd>V</kbd> select, <kbd>R</kbd>
+road, <kbd>S</kbd> street, <kbd>Z</kbd> settlement, <kbd>C</kbd> city, <kbd>T</kbd> guideway, <kbd>X</kbd> erase,
+<kbd>F</kbd> turn, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>S</kbd> save the world. While it is open,
+the province's keys wait.
+
 ## The map, with the mouse
 
 | | |
