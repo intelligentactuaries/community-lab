@@ -50,7 +50,7 @@ See [Conversations](../province/conversations.md).
 | **Ollama model** | The models installed in Ollama; **refresh** looks again (needed if Ollama was started after the app). Without a choice, the first of the gpt-oss, Gemma, Qwen and Llama families. |
 | **gpt-oss reasoning** | *low* (the fastest, and recommended for dialogue), *medium*, *high*. gpt-oss cannot switch its reasoning off. |
 | **Compatible base URL** | For an OpenAI-compatible endpoint, such as `http://localhost:1234/v1` (LM Studio, vLLM, Groq…). |
-| **Model** for each hosted provider | Left empty: `claude-sonnet-4-6`, `gpt-4o-mini`, `gemini-2.0-flash`, `local-model`. |
+| **Model** for each hosted provider | Left empty: `claude-haiku-5-5`, `gpt-4o-mini`, `gemini-3.8-flash`, `local-model`. |
 
 ## Keys
 

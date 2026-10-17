@@ -4,6 +4,14 @@ import { NAV_DEFAULTS, UE, fmtSpeed, navPrefs, resetNavPrefs, setNavPref, type F
 import { store, useStore, type AiMode } from '../lib/simStore';
 import { useTheme, type ThemeChoice } from '../lib/theme';
 
+/** The model each provider uses when none is named here (server/llm/router.ts DEFAULT_MODELS). */
+const DEFAULT_MODEL: Record<CloudProvider, string> = {
+  anthropic: 'claude-haiku-5-5',
+  openai: 'gpt-4o-mini',
+  gemini: 'gemini-3.8-flash',
+  'openai-compat': 'model id',
+};
+
 const CLOUD: { id: CloudProvider; label: string; placeholder: string }[] = [
   { id: 'anthropic', label: 'Anthropic Claude', placeholder: 'sk-ant-…' },
   { id: 'openai', label: 'OpenAI', placeholder: 'sk-…' },
@@ -194,7 +202,7 @@ export function SettingsModal({ info, onInfo }: { info: ProvidersInfo | null; on
               {(['anthropic', 'openai', 'gemini', 'openai-compat'] as const).map((id) => (
                 <div className="key-row" key={id}>
                   <span>{CLOUD.find((c) => c.id === id)!.label} model</span>
-                  <input type="text" placeholder={id === 'anthropic' ? 'claude-sonnet-4-6' : id === 'openai' ? 'gpt-4o-mini' : id === 'gemini' ? 'gemini-2.0-flash' : 'model id'} value={prefs.models[id] ?? ''} onChange={(e) => edit((p) => ({ ...p, models: { ...p.models, [id]: e.target.value || undefined } }))} />
+                  <input type="text" placeholder={DEFAULT_MODEL[id]} value={prefs.models[id] ?? ''} onChange={(e) => edit((p) => ({ ...p, models: { ...p.models, [id]: e.target.value || undefined } }))} />
                   <span />
                 </div>
               ))}

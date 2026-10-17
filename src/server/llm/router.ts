@@ -3,9 +3,9 @@ import { callOllamaStream, listOllamaModels, pickOllamaModel, warmOllama } from 
 import type { CloudProvider, Message, Provider, ProviderPrefs, ProvidersInfo } from './types';
 
 const DEFAULT_MODELS: Record<Provider, string> = {
-  anthropic: 'claude-sonnet-4-6',
+  anthropic: 'claude-haiku-5-5',
   openai: 'gpt-4o-mini',
-  gemini: 'gemini-2.0-flash',
+  gemini: 'gemini-3.8-flash',
   'openai-compat': 'local-model',
   ollama: 'gpt-oss:20b',
 };
