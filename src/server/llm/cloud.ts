@@ -70,8 +70,9 @@ export async function* callGeminiStream(c: ProviderCall): AsyncGenerator<string>
   const contents = c.messages.filter((m) => m.role !== 'system').map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
   const body: Record<string, unknown> = { contents, generationConfig: { temperature: c.temperature ?? 0.8, maxOutputTokens: c.maxTokens ?? 800 } };
   if (sys) body.systemInstruction = { role: 'system', parts: [{ text: sys }] };
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(c.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(c.apiKey)}`;
-  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: c.signal });
+  // The key goes in a header, not the URL, where it would travel into logs and error messages with the address.
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(c.model)}:streamGenerateContent?alt=sse`;
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': c.apiKey }, body: JSON.stringify(body), signal: c.signal });
   if (!r.ok) throw new Error(`gemini ${r.status}: ${await r.text()}`);
   for await (const data of sseLines(r)) {
     if (!data) continue;
