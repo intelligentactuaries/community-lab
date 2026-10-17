@@ -7,7 +7,7 @@ in a field.
 
 | Keys | Does |
 |---|---|
-| <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>Ctrl</kbd>+<kbd>2</kbd> | The province / the workbench |
+| <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>Ctrl</kbd>+<kbd>2</kbd> | The province / the workbench (not while the Community Builder is open) |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings (desktop app) |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> | Reload the window (desktop app) |
 | <kbd>Ctrl</kbd>+<kbd>Q</kbd> | Quit (desktop app, Linux and Windows; <kbd>Cmd</kbd>+<kbd>Q</kbd> on a Mac) |
@@ -32,10 +32,11 @@ With the numpad's NumLock on, its digits also change the speed.
 
 ## The Community Builder
 
-The builder has keys of its own, listed on [its page](../builder/index.md#keys): <kbd>V</kbd> select, <kbd>R</kbd>
-road, <kbd>S</kbd> street, <kbd>Z</kbd> settlement, <kbd>C</kbd> city, <kbd>T</kbd> guideway, <kbd>X</kbd> erase,
-<kbd>F</kbd> turn, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>S</kbd> save the world. While it is open,
-the province's keys wait.
+The builder has keys of its own, listed on [its page](../builder/index.md#keys): <kbd>V</kbd> select, <kbd>H</kbd>
+move the map, <kbd>R</kbd> road, <kbd>S</kbd> street, <kbd>Z</kbd> settlement, <kbd>C</kbd> city, <kbd>T</kbd>
+guideway, <kbd>X</kbd> erase, <kbd>F</kbd> turn, <kbd>Del</kbd> delete, <kbd>G</kbd> snapping, <kbd>0</kbd> fit,
+<kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate, <kbd>Ctrl</kbd>+<kbd>S</kbd> save the
+world. While it is open, the province's keys and <kbd>Ctrl</kbd>+<kbd>1</kbd> / <kbd>Ctrl</kbd>+<kbd>2</kbd> wait.
 
 ## The map, with the mouse
 

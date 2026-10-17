@@ -4,7 +4,8 @@ The **Actuarial** tile opens an actuarial workbench on the province: the theory 
 burial society priced and its risk measured, a projection of the population, a worker's pension and the state's
 old-age grant, in the International Actuarial Notation and valued at a rate you choose from the province's own.
 Nothing here feeds back into the simulation: the workbench values what the province has produced, on the province's
-own basis.
+own basis. On a world built in the [Community Builder](../builder/index.md) it values that world's burial society,
+people and economy the same way.
 
 <figure class="cl-shot" markdown>
 ![The actuarial workbench](../assets/img/actuarial.webp)

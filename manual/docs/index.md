@@ -6,8 +6,13 @@ Community Lab IDE is a desktop IDE for actuarial agent-based simulation. It runs
 the centre they share and an airport, about four hundred residents in a hundred households, every one of them an
 agent living on published South African mortality and fertility bases. Every rand they earn, spend, borrow, insure
 or pay in tax is posted to double-entry books; a burial society carries their risk; a central bank sets the repo
-rate. Around the province is an IDE: a workbench of files that rebuild it on a basis of your own, run paired
-experiments on a pool of workers, and script it from JavaScript. It runs entirely on your machine.
+rate. The **Community Builder** lays out communities of your own, or changes the province, and runs them in its
+place; a world you build is kept as a `.sce` file. Around it all is an IDE: a workbench of files that rebuild the
+province on a basis of your own, run paired experiments on a pool of workers, and script it from JavaScript. It
+runs entirely on your machine.
+
+Community Lab IDE is a desktop app of its own, with installers for Linux, Windows and macOS. The same Community Lab
+also ships inside Scelo 1.0, with an engine of its own there.
 
 <figure class="cl-shot" markdown>
 ![Unity Province](assets/img/province.webp)
@@ -18,8 +23,13 @@ experiments on a pool of workers, and script it from JavaScript. It runs entirel
 
 -   :material-map-outline: **[The province](province/index.md)**
 
-    The simulation, live: every resident on the map, a clock from real time to a year a second, an inspector for
+    The simulation, live: every resident on the map, a clock from real time to thirty years a minute, an inspector for
     anyone, and a 3D close-up you can walk through.
+
+-   :material-hammer-wrench: **[The Community Builder](builder/index.md)**
+
+    A blank canvas, the small town of Masakhane or the province itself: place homes, churches, schools, shops,
+    roads and whole settlements, check the world, run it, and keep it as a `.sce` file.
 
 -   :material-chart-box-outline: **[Analytics](analytics/index.md)**
 
@@ -40,8 +50,9 @@ experiments on a pool of workers, and script it from JavaScript. It runs entirel
 
 ## What makes it different
 
-- **An explicit basis.** Every assumption is a parameter with its source, and the whole basis is hashed onto every
-  export. The same seed and basis give the same province and the same history, on any machine.
+- **An explicit basis.** Every assumption is a parameter with its source, and the whole basis, with the world it
+  runs on, is hashed onto every export. The same seed, basis and world give the same population and the same
+  history, on any machine.
 - **Experience you can measure.** Exposure and expected deaths accrue day by day, by age band and sex, so actual
   against expected is measured the way an actuary measures a portfolio, with intervals that say how much a small
   province can tell you.
@@ -49,8 +60,8 @@ experiments on a pool of workers, and script it from JavaScript. It runs entirel
   everything the change does not touch: the lab compares them seed by seed, with Student-t intervals.
 - **Books that balance.** A standard chart of accounts, a hash-chained general journal, statements on IFRS for SMEs
   lines, SARS's 2026/27 tables, a mutual bank under IFRS 9, and an audit that re-verifies the chain.
-- **Offline and open.** Nothing needs a network or an account. Province files, experiment files and scripts are
-  plain text; every export is an open, self-describing format.
+- **Offline and open.** Nothing needs a network or an account. Province files, experiment files, scripts and
+  `.sce` worlds are plain text; every export is an open, self-describing format.
 
 ## Who it is for
 

@@ -31,5 +31,5 @@ IDE › Check for Updates…** offers to open the Releases page.
 ## Uninstalling
 
 Move **Community Lab IDE** from Applications to the Bin. Your workspaces stay wherever you put them; the app's data
-and the engine's log are in `~/Library/Application Support/community-lab-ide/`, and the app's own log in
+(with the worlds you saved in the builder) and the engine's log are in `~/Library/Application Support/community-lab-ide/`, and the app's own log in
 `~/Library/Logs/community-lab-ide/`, until you delete them.

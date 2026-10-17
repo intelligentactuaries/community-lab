@@ -16,8 +16,10 @@ its rail:
 | [Tax & SARS](#tax-and-sars) | PAYE, UIF, SDL, VAT, company tax, returns, assessments, compliance |
 | [Audit](#audit) | The hash-chained journal, the articulation checks, the audit log |
 
-The books open on the province's first day, and everything here is read from them: national figures are the sums
-of the households and firms you can open.
+The books are kept from the province's first day, and the workspace opens once the first month has closed;
+everything here is read from them: national figures are the sums of the households and firms you can open. A world
+built in the [Community Builder](../builder/index.md) keeps the same books for its own households and businesses,
+and the workspace reads them the same way.
 
 <figure class="cl-shot" markdown>
 ![The finance workspace: micro](../assets/img/economy-micro.webp)
@@ -89,7 +91,9 @@ Policy Committee**'s meetings and votes; and **fuel-levy relief**.
 
 Every economic entity keeps its own books: every household, the shops and the mall, the farms, the workshops, the
 offices and chambers, the churches, the burial society, the Mutual Bank, the transport operators, the airport
-company, the government and the rest of the economy.
+company, the government and the rest of the economy. In a built world, each business opens on the province's books
+for its kind; the Mutual Bank, the burial society, the e-hailing app and the fleet are in every world, the transit
+operator only where buses or trains run, and the airport company only with an airport.
 
 <figure class="cl-shot" markdown>
 ![The general journal](../assets/img/books.webp)

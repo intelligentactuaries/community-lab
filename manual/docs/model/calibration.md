@@ -2,7 +2,11 @@
 
 What the province can be read for, what it cannot, and how close it comes to its own basis. Every figure on this
 page was measured on Community Lab IDE 0.1.0 on 4 October 2026, and the last section shows how to measure it
-yourself.
+yourself. Version 1.0.0 leaves the constants behind these figures as they were (the table share, its normaliser and
+the illness case fatality), and the figures have not been measured again on it.
+
+The figures are the built-in province's. A world built in the [Community Builder](../builder/index.md) runs on the
+same constants, but its own experience has not been measured: pool its seeds before you read its A/E.
 
 ## How the province's deaths are made
 

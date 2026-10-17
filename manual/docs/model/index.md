@@ -37,6 +37,16 @@ Roads join every building to every other. The **Hyperline**, an elevated guidewa
 three cities, the centre and the airport; four bus lines run into the terminus; minibus taxis wait at every rank;
 the Hamba e-hailing app, ambulances, patrol cars and two aeroplanes complete the traffic.
 
+## Other worlds
+
+The province is one world among others. A world made in the [Community Builder](../builder/index.md) is a **plan**
+(its cities and settlements, their wealth tiers, its roads and its buildings), kept in a `.sce` file. The engine
+never reads a plan directly: it derives from it an **atlas**, the same structure the built-in province is, and runs
+the same day step on it. Who uses which school, clinic, church or shop, who fills each post, which books each
+business opens with and what a world without a clinic or a court does instead follow written rules, set out under
+*Worlds built in the Community Builder* in [Assumptions and provenance](assumptions.md). Deriving the province's own
+plan gives back the built-in atlas, and a run on it is the built-in run.
+
 ## The people
 
 A resident has a sex, an age, a household, a Big Five personality, schooling, a job and an income, a marital
@@ -80,7 +90,8 @@ consequences:
 
 Every basis is fingerprinted: the **basis hash** covers every parameter, the seed included, and the
 **assumptions hash** covers the assumptions alone, so the seeds of one basis can be told apart from another basis
-and pooled.
+and pooled. Both include the world's own hash when the run is in a built world (the province's runs keep the hashes
+they had before there were other worlds), so runs pool only within one world.
 
 ## The bases
 

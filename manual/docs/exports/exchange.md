@@ -32,7 +32,7 @@ reads, so Community Lab's data opens there as it is, and it is simple enough to 
 | Field | What it is |
 |---|---|
 | `schema`, `kind` | Always `scelo.exchange/1` and `community.export`. |
-| `exportKind` | `experience`, `person-years`, `model-points`, `macro` or `experiment`. |
+| `exportKind` | `experience`, `person-years`, `model-points`, `macro` or `experiment`. (The format also names `population`, which Community Lab does not write.) |
 | `title`, `summary` | What it is, in words, including how to use it. |
 | `tables` | One or more tables, each with a `name`, `title`, `description`, `columns` (each with a `name`, a `description` and, where it has one, a `unit`) and `rows` (objects keyed by column name). |
 | `provenance` | Where it came from (below). |
@@ -47,10 +47,10 @@ reads, so Community Lab's data opens there as it is, and it is simple enough to 
 | `span` | The simulated dates the data covers. |
 | `seed` or `seeds` | The seed of the province on screen, or how many seeds a pooled export or experiment ran. |
 | `basisHash` | The fingerprint of the whole basis, seed included. |
-| `assumptionsHash` | The fingerprint of the assumptions alone: every seed of one basis shares it, so runs that may be pooled can be told apart from runs that may not. |
+| `assumptionsHash` | The fingerprint of the assumptions alone: every seed of one basis shares it, so runs that may be pooled can be told apart from runs that may not. A world made in the Community Builder is part of it: runs pool only within one world. |
 | `scenario` | What it was, in words. |
-| `changed` | Every parameter that differed from the defaults, a supplied table (its label and source) and any shocks. |
-| `notes` | Anything else worth knowing: the seeds pooled, parameters that were left out. |
+| `changed` | Every parameter that differed from the defaults, a supplied table (its label and source) and any shocks. A built world appears as `world`: its name and its fingerprint, not the whole world. |
+| `notes` | Anything else worth knowing: the seeds pooled, parameters that were left out, and for a pooled export or an experiment in a built world, a line naming the world. |
 
 ## The true basis
 

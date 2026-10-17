@@ -20,7 +20,10 @@ Stress Lab**.
    editable here.
 3. **Choose seeds and years**: 2 to 64 seeds, 1 to 40 years (8 and 10 to start).
 4. **from this province's basis**: tick it to start every arm, and the baseline, from the province as you have
-   built it in the Scenario panel (its parameters, a table it lives on, its shocks) instead of the defaults.
+   built it in the Scenario panel (its parameters, a table it lives on, its shocks) instead of the defaults. On a
+   world built in the [Community Builder](../builder/index.md) the box reads **in *world*, on its basis**: ticked,
+   every arm runs in that world on its own parameters; unticked, the arms run in the built-in province on the
+   defaults.
 5. **Run on the server.**
 
 To add or remove arms, edit labels or shocks, or ask a question no template asks, write an
@@ -46,7 +49,8 @@ the baseline's mean, with its 95% interval and a line at zero.
 
 **Every indicator**: all 21 [indicators](../reference/indicators.md), the lead ones first: the baseline's mean over
 the seeds, then for each arm the effect with its interval, and **better k/n**, the number of seeds in which the arm
-moved the indicator the better way. An effect whose interval crosses zero is shown faint.
+moved the indicator the better way (an indicator with no better way, such as the population, has none). An effect
+whose interval crosses zero is shown faint. The card's note gives the assumptions hash.
 
 How an effect is computed:
 
@@ -66,3 +70,6 @@ interval that crosses zero is an effect these seeds cannot tell from chance; mor
   run from, so it can be run again. A run from an experiment file is saved there by itself.
 - **Download CSV** saves the runs; **JSON** saves the whole result.
 - **Recent experiments** lists the last fifty experiments the engine has kept; click one to show it again.
+
+An experiment run in a built world says so in its provenance (the world's name and its plan's hash), and the world's
+hash is part of the **assumptions hash**, so its runs never pool with the province's or another world's.

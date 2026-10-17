@@ -5,7 +5,7 @@
 Community Lab IDE opens on a launch screen (the C₁.₀ mark, *Starting the engine*) while it starts its **engine**:
 the simulation server, bundled inside the app, on a port of this machine only (3040, or the next free one up to
 3240). When the engine answers, the screen reads *Building Unity Province* and the app opens on the **province**:
-the default province, at dawn on its first day, **paused**.
+the default province, at midnight at the start of its first day, **paused**.
 
 Press <kbd>Space</kbd> (or the play button in the top bar) to start the clock. [Getting started](../getting-started.md)
 walks through the first hour from there.
@@ -14,7 +14,7 @@ walks through the first hour from there.
 
 | | Linux | Windows | macOS |
 |---|---|---|---|
-| Data: the dialogue cache, experiments, Monte Carlo runs and pooled exports kept by the engine, the workspace you had open | `~/.config/community-lab-ide/data` | `%APPDATA%\community-lab-ide\data` | `~/Library/Application Support/community-lab-ide/data` |
+| Data: the dialogue cache, experiments, Monte Carlo runs and pooled exports kept by the engine, the worlds you saved in the [Community Builder](../builder/index.md) (`worlds/`), the workspace you had open | `~/.config/community-lab-ide/data` | `%APPDATA%\community-lab-ide\data` | `~/Library/Application Support/community-lab-ide/data` |
 | The engine's log (`server.log`) | `~/.config/community-lab-ide/logs` | `%APPDATA%\community-lab-ide\logs` | `~/Library/Application Support/community-lab-ide/logs` |
 | The app's log (`main.log`) | the same `logs` folder | the same `logs` folder | `~/Library/Logs/community-lab-ide` |
 
@@ -22,8 +22,10 @@ walks through the first hour from there.
 only remembers their paths. [Files and environment](../reference/files.md) lists everything in detail.
 
 The window remembers its size and position, and the app remembers your settings, the scenario you built, the view
-you were in and the panels you had open. It does not keep the running province: each launch starts the province
-afresh on your scenario, at day 0, paused.
+you were in and the panels you had open. It also remembers the world you last ran: if that was a world from the
+Community Builder, the app opens on it rather than on Unity Province (a very large world may be too big to keep).
+It does not keep the running simulation: each launch starts afresh on your scenario and that world, at day 0,
+paused.
 
 ## A language model (optional)
 
@@ -34,8 +36,8 @@ The simulation needs no model. To have residents' conversations scripted by one,
 ollama pull gpt-oss:20b
 ```
 
-The app finds Ollama at `http://localhost:11434` and picks the first installed model of the gpt-oss, Gemma, Qwen or
-Llama families. It loads the model only when the first conversation needs it, so the GPU stays free until then.
+The app finds Ollama at `http://localhost:11434` (or wherever `OLLAMA_HOST` points) and picks an installed model:
+gpt-oss first, then Gemma, Qwen 3, Qwen 2.5 and Llama 3, and otherwise the first one it finds. It loads the model only when the first conversation needs it, so the GPU stays free until then.
 If you start Ollama after the app, open **Settings** (the model chip in the top bar) and press **refresh**.
 Hosted providers (Anthropic, OpenAI, Gemini, or any OpenAI-compatible endpoint) are set up there too. See
 [Conversations](../province/conversations.md).

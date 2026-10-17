@@ -19,6 +19,11 @@ bar (or **View › Exports**) opens them.
 | **The burial society's book** | `unity_burial_society_model_points`: `policy_id`, `household_id`, `cover` (funeral or life), `age_at_entry`, `sex`, `sum_assured`, `policy_term`, `duration_mth`, `premium_pp` | Covered life × cover |
 | **The economy, month by month** | `unity_economy_monthly`: CPI and inflation, the repo and prime rates, nominal and real GDP, unemployment and employment, the Gini of income and wealth, tax revenue, government spending, the fiscal balance, household disposable income, the saving rate, bank deposits and loans, the petrol price, Brent and the rand | Month |
 
+**A built world exports the same way.** With a world from the [Community Builder](../builder/index.md) on screen,
+every export is of that world. The tables keep their names (`unity_…`) and titles, and the provenance names the
+world: `changed` carries it as its name and fingerprint, and the world's fingerprint goes into the assumptions hash,
+so runs in two different worlds are never pooled as one basis.
+
 The experience and person-year exports carry the **true basis** the province lived on (the table by single age and
 sex, its improvement, and the individual risk factors), so a table fitted to the data can be scored against the
 answer. The [policy and stress lab](../analytics/lab.md) exports its experiments the same way.
@@ -43,8 +48,10 @@ exposure-weighted over the cell. Calendar years observed for less than half thei
 period model reads every year as a whole one.
 
 **One province is about four hundred people**, a handful of deaths a year, so most cells of one province's
-experience are empty. **Pool on the worker pool** lives the province's basis on many seeds (16 by default, up to 64;
-10 years by default, up to 40; at most 800 province-years) and pools their experience into one export. The person-year
+experience are empty. **Pool on the worker pool** lives what is on screen on many seeds (16 by default, up to 64; 10 years by default, up
+to 40; at most 800 province-years) and pools their experience into one export: the parameters changed in the Scenario
+panel, a supplied table and its shocks, and a built world if one is on screen. The seeds are `pool-1`, `pool-2` and
+so on, and the provenance's notes list them. The person-year
 panel describes each person **as at the end of observation** (or their death or departure): the engine keeps no
 history of a job or an income.
 
@@ -52,7 +59,7 @@ history of a job or an income.
 
 **Import a mortality table (CSV)**, at the bottom of the tab, reads a table (see [Mortality
 tables](../workbench/mortality-tables.md) for the format) and rebuilds the province on it, from day 0 on the same
-seed, keeping its other parameters and any shocks. A/E is then measured against your table, the Exports chip reads
+seed, keeping its other parameters, any shocks and a built world if one is on screen. A/E is then measured against your table, the Exports chip reads
 *Exports · basis*, and the card compares your table with the preset at key ages.
 
 **Return to the preset basis and lift the shocks** goes back: it removes the table and every shock, keeps the

@@ -16,7 +16,8 @@ province(options?: {
 }): Promise<Province>
 ```
 
-Builds a province of the script's own, in the script's worker; the province on screen is untouched. The same seed
+Builds a province of the script's own, in the script's worker; the province on screen is untouched. It is always
+the built-in province: a script cannot build a world from the [Community Builder](../builder/index.md). The same seed
 and basis give the same province, and the same basis hash, as the IDE's own. A basis entry the engine does not
 accept (an unknown name, a value out of range) is left out with a warning in the Console, and the rest is built.
 `mortality` and `shocks` take the same forms as in a [province file](province-files.md).
@@ -34,7 +35,7 @@ accept (an unknown name, a value out of range) is left out with a warning in the
 | `p.people()` | Residents alive and living in the province, one row each (below). |
 | `p.households()` | Households that still exist, one row each (below). |
 | `p.experience({ ageWidth, group })` | Deaths, person-years and expected deaths by calendar year, age and sex, rebuilt person by person (below). `ageWidth` defaults to 1 (single ages); `group` is `'none'` (the default), `'city'`, `'settlement'` or `'tier'`. |
-| `p.events(kind)` | The event ledger (the most recent few thousand events), optionally of one kind: `'birth'`, `'death'`, `'wedding'` and so on. |
+| `p.events(kind)` | The event ledger (the most recent few thousand events), optionally of one kind: `'birth'`, `'death'`, `'wedding'` and so on (below). |
 | `p.world` | The engine's own state. Read it; changing it is undefined behaviour. |
 
 **`people()` rows:** `id`, `name`, `sex` (`'M'` or `'F'`), `age`, `city`, `settlement`, `tier`, `household`,
@@ -42,6 +43,9 @@ accept (an unknown name, a value out of range) is left out with a warning in the
 
 **`households()` rows:** `id`, `name`, `city`, `settlement`, `tier`, `members`, `income`, `expenses`, `savings`,
 `debt`, `poor`, `funeral_cover`, `life_cover`, `medical_aid`.
+
+**`events()` rows:** `day` (days since the start), `date` (`YYYY-MM-DD`), `kind`, `severity` and `text`, the line the
+event ledger shows.
 
 **`experience()` rows:** `year`, `age` (the lower edge of the band), `age_width`, `sex`, `group` (or `null`),
 `person_years`, `deaths`, `expected_deaths` and `qx_basis`, the true basis's q for the cell. Exposure counts every
@@ -62,7 +66,9 @@ experiment(spec: ExperimentSpec): Promise<ExperimentResult>
 A paired experiment: the baseline and every arm on the same seeds. `spec` has the shape of an
 [experiment file](experiment-files.md) (`title`, `question`, `audience`, `base`, `baseMortality`, `baseShocks`,
 `arms`, `seeds`, `years`) and the same limits: at most six arms, 2 to 64 seeds, 1 to 40 years, and 800
-province-years in all. The result:
+province-years in all. A spec outside those limits is an error with the engine's reasons. A basis entry the engine
+does not take (an unknown name, a value out of range) is left out of the runs; unlike `province()`, the script is not
+told, so check the names against [the basis](../reference/basis.md). The result:
 
 | Field | What it is |
 |---|---|
@@ -107,7 +113,9 @@ pooledExperience(options: {
 ```
 
 Mortality experience pooled over seeds of one basis: 16 seeds by default (at most 64), 10 years (at most 40),
-five-year age bands unless `ageWidth` is 1, within 800 province-years. The result has `rows` (calendar year, age,
+five-year age bands unless `ageWidth` is 1, within 800 province-years. The seeds are `pool-1`, `pool-2` and so on. The
+engine checks `basis` before it starts: a value of the wrong kind refuses the job, and a name or value it does not
+take is left out, as the provenance's notes say. The result has `rows` (calendar year, age,
 sex, person-years, deaths, expected deaths, the basis q), `headline` (person-years, deaths, A/E with its interval,
 the calendar years), `truth` (the true basis it was generated on, by single age and sex: the answer key for a
 fitted table) and `provenance`. Calendar years observed for less than half their days are left out.

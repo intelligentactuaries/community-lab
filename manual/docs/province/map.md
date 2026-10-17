@@ -1,7 +1,8 @@
 # The map
 
 The map is the whole province, drawn from the simulation as it runs: every resident where they are this minute,
-every car where its journey has got to, every room furnished as the province lays it out.
+every car where its journey has got to, every room furnished as the province lays it out. A world from the
+[Community Builder](../builder/index.md) is drawn the same way, with its own cities, settlements and names.
 
 ## Moving about
 
@@ -15,13 +16,19 @@ every car where its journey has got to, every room furnished as the province lay
 | **Click** | Select a person, a house (its household) or a building; on empty ground, clear the selection. |
 | **Double-click** a house or building | Drop into it: the map fits it and selects it. |
 | **Double-click** a person | Follow them. |
+| **Hover** | Who or what is under the cursor: a person's age, sex, job, type, activity and household; a building's kind, settlement and how many are inside. |
 
 **Fly-to buttons** on the right go straight to Emmaus, Newhaven, Ithemba, Unity Provincial Airport, the Unity CBD,
-Unity Park and the hospital campus; hover over one for what it is.
+Unity Park and the hospital campus; hover over one for what it is. On a built world they go to its cities and its
+airport, and to up to four zones of its shared centres.
 
 The **breadcrumb** at the top left (Province › City › Settlement › House › Person) shows where you are and steps
-back out: click any step. <kbd>Esc</kbd> steps out one level too, after closing whatever is open on top (the scene
-controls, Settings or Help, the analytics drawer).
+back out: click any step. On a built world the first step carries the world's name. <kbd>Esc</kbd> steps out one
+level too, after closing whatever is open on top (the scene controls, Settings or Help, the analytics drawer); with
+nothing left to step out of, it clears the selection.
+
+Beside the breadcrumb, the speed actually achieved, whether the day is animated or a time-lapse, and the zoom; a
+note shows while a model is scripting a conversation, or why it last failed.
 
 Zoom in past the room plans and the map becomes the [3D close-up](3d.md); the **3D** button in the zoom column keeps
 the map flat at every zoom instead.
@@ -72,7 +79,7 @@ shop after hours, a church on a weekday, a parked car, an empty bus. The colour 
 | Car, bakkie | Households' cars and pickups, parked at home or in bays beside the buildings they serve. |
 | Yellow minibus | A minibus taxi. |
 | Blue bus | A bus on one of the four lines into the terminus. |
-| Teal car with a roof sign | A Hamba e-hailing car: the sign is green while the driver is online, amber on a surge-priced trip, grey offline. |
+| Teal car with a roof sign | A Hamba e-hailing car: the sign is pale green while the driver is online, amber on a surge-priced trip, grey offline. |
 | Dark blue car | A police patrol car; its light flashes while it is moving. |
 | White car with a red cross | An ambulance. |
 | Pale capsule with a blue nose | The Hyperline. At speed it leaves a streak along the guideway: a hop between stations takes about a second of simulated time, so the train is drawn gliding between platforms. |

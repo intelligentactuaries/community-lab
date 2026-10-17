@@ -29,5 +29,5 @@ Updates…** offers to open the Releases page.
 ## Uninstalling
 
 **Settings › Apps › Installed apps › Community Lab IDE › Uninstall**. The uninstaller leaves your data: your
-workspaces stay wherever you put them, and the app's data and logs stay in `%APPDATA%\community-lab-ide\` until
-you delete that folder.
+workspaces stay wherever you put them, and the app's data (with the worlds you saved in the builder) and logs stay
+in `%APPDATA%\community-lab-ide\` until you delete that folder.

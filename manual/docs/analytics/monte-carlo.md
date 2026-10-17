@@ -10,7 +10,8 @@ against the basis pooled over all the seeds. Open it from the **Monte Carlo** ti
 The card **Replications of this basis** takes **Years** (30 by default, up to 60) and **Seeds** (20 by default, up
 to 200). **Run on the server** puts one run per seed on the worker pool, on the seeds `mc-1`, `mc-2` and so on; the
 basis is the province's as you have built it, with any table it lives on and its shocks, on those seeds rather than
-the province's own. Progress shows as runs done out of the total.
+the province's own. On a world built in the [Community Builder](../builder/index.md), every seed runs in that world.
+Progress shows as runs done out of the total, and the card's note gives the basis hash.
 
 A Monte Carlo run is not limited to 800 province-years as experiments are, so a large one takes a while. A
 province-year takes one worker ten seconds or more, so 20 seeds of 30 years (600 province-years) keep eight workers
@@ -37,5 +38,6 @@ and histograms of the final population, the A/E and the society's final reserve 
 ## From a script or a terminal
 
 `monteCarlo({ basis, seeds, years })` in a [script](../workbench/script-api.md#montecarlooptions) runs the same job
-and returns the same summary. From a checkout of the source, `bun scripts/batch.ts --seeds 20 --years 30 --out
+and returns the same summary, in the built-in province (a script's basis carries no world), on 10 years unless you
+say otherwise. From a checkout of the source, `bun scripts/batch.ts --seeds 20 --years 30 --out
 data/batch.csv` runs it without the app.

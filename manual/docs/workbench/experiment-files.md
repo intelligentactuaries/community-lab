@@ -23,8 +23,8 @@ A paired comparison needs far fewer seeds than comparing two independent sets of
 | `title`, `question` | What the experiment is and the question it answers, in your words. Both travel with the result. |
 | `audience` | `actuarial`, `government` or `social`: which of the lab's audiences it is written for. |
 | `base` | The [basis parameters](../reference/basis.md) every run starts from. Without it, the defaults. |
-| `baseMortality`, `baseShocks` | A [mortality table](mortality-tables.md) and [shocks](province-files.md#shocks) for the baseline and every arm. |
-| `arms` | One to six arms. Each has an `id` (lower-case words joined by hyphens, unique, not `baseline`), a `label`, and at least one of `params` (basis parameters on top of `base`), `mortality` (a table of its own) and `shocks` (shocks of its own): an arm that changes nothing is refused. |
+| `baseMortality`, `baseShocks` | A [mortality table](mortality-tables.md) (written inline: an experiment file does not take a CSV path) and [shocks](province-files.md#shocks) for the baseline and every arm. |
+| `arms` | One to six arms. Each has an `id` (lower-case words joined by hyphens, unique, not `baseline`), a `label`, and at least one of `params` (basis parameters on top of `base`), `mortality` (a table of its own) and `shocks` (shocks of its own, up to twelve): an arm that changes nothing is refused. |
 | `seeds` | How many seeds every run lives on: 2 to 64. |
 | `years` | How long each run lives: 1 to 40 years. |
 | `notes` | For people. |
@@ -33,8 +33,8 @@ A paired comparison needs far fewer seeds than comparing two independent sets of
 
 A job may ask for at most **800 province-years**: seeds × years × runs per seed, where the runs are the baseline and
 every arm. The sample's grant experiment (8 seeds, 10 years, one arm) is 160 province-years. The toolbar above the
-editor says what a file will cost before you run it ("4 runs × 10 years · 320 province-years · about 7 min", for
-instance), and a file over the limit is refused with the reason in **Problems**.
+editor says what a file will cost before you run it ("32 runs × 10 years · 320 province-years · about 7 min" for 16
+seeds and one arm, for instance), and a file over the limit is refused with the reason in **Problems**.
 
 The worker pool runs one province per worker at a time, on half the machine's threads and at most eight (the
 `COMMUNITY_WORKERS` environment variable changes that). The estimate assumes eight workers and about ten seconds a
@@ -48,7 +48,11 @@ of the effects on the indicators the experiment leads with: for each arm and ind
 and its 95% interval. **Stop** (**Ctrl+Shift+Enter**) cancels the job: queued runs are dropped, and running workers
 stop at the end of the simulated day they are on. **Open in the lab** shows a file in the lab without running it.
 
-Every arm runs on the seeds `exp-1`, `exp-2` and so on, never on a province file's own seed. For each indicator and
+Every arm runs on the seeds `exp-1`, `exp-2` and so on, never on a province file's own seed, and in the built-in
+province, whatever is on screen. To run an experiment in a world made in the
+[Community Builder](../builder/index.md), open the [lab](../analytics/lab.md) with the world on screen and tick the box
+that runs every arm in the world, on its basis (it carries the world's name). A basis parameter the engine does not take is left out of the run, and the Console names
+it. For each indicator and
 arm, the result holds:
 
 - its **distribution** over the seeds (mean, standard deviation, 5th, 50th and 95th percentiles);

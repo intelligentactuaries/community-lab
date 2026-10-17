@@ -5,6 +5,9 @@ shell, the engine (a compiled server with its worker pool) and the client, with 
 no account and no network: the only things that go online are the AppImage's update check and a hosted language
 model, if you choose one.
 
+The same Community Lab also ships inside Scelo 1.0, with an engine of its own there (on port 3020). Using it in
+Scelo needs nothing more; the installers below are for Community Lab IDE, the app on its own.
+
 ## Pick your installer
 
 The installers are on the [Releases page](https://github.com/intelligentactuaries/community-lab/releases) and at

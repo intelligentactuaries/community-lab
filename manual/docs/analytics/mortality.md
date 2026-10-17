@@ -59,6 +59,10 @@ expected deaths are below 0.1, no ratio is shown.
   basis is below 1, most of all at older ages: see [Calibration and limits](../model/calibration.md) for the
   measured figures.
 
+On a world built in the [Community Builder](../builder/index.md), the cards count that world's people the same
+way, on the same basis. Its calibration has not been measured: pool its seeds before reading its A/E (a pooled export
+and Monte Carlo both run in the world on screen).
+
 ## Fertility, the same way
 
 Births are measured against the fertility basis the same way: every woman's day of exposure adds her age-specific

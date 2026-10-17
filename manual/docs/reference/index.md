@@ -1,14 +1,14 @@
 # Reference
 
-The facts, in tables. Three of these pages are generated from the engine each time the manual is built, so they
-cannot disagree with the version they describe.
+The facts, in tables. Three of these pages are generated from the engine's own code, so they cannot disagree with the
+version they describe.
 
 | Page | What it holds |
 |---|---|
 | [Basis parameters](basis.md) | Every assumption you can change: its meaning, default and range; the mortality presets, the fertility shapes, the climates and the settlement tiers. *Generated.* |
 | [Indicators](indicators.md) | The 21 indicators experiments, Monte Carlo runs and scripts report, and how each is defined. *Generated.* |
 | [Lab templates](templates.md) | The policy and stress lab's ready-made experiments, arm by arm. *Generated.* |
-| [Keyboard and mouse](shortcuts.md) | Every shortcut, in the province, the 3D close-up and the workbench. |
+| [Keyboard and mouse](shortcuts.md) | Every shortcut, in the province, the 3D close-up, the Community Builder and the workbench. |
 | [Settings](settings.md) | Every setting, its choices and its default. |
 | [Files and environment](files.md) | Where the app keeps its data and logs, and the environment variables it reads. |
 | [The engine's API](api.md) | The local HTTP API the app and scripts use. |

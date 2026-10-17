@@ -8,7 +8,8 @@ Analytics** in the desktop app.
 **Population pyramid**: residents by sex in five-year bands from 0-4 to 80+, for the province or the scope you
 picked. **Population, households**: residents, children, over-65s and households, month by month (for a city or a
 settlement: its population, households and poor households). **Cities: population** and **Cities: household
-income** compare Emmaus, Newhaven and Ithemba, or the settlements of the city you picked. **Vital events
+income** compare Emmaus, Newhaven and Ithemba (on a built world, its own cities), or the settlements of the city you
+picked. **Vital events
 (cumulative)**: births, deaths, marriages, emigrants and immigrants.
 
 **Year by year** is the province's annual table, one row for each year since the start: population, births,
@@ -39,16 +40,17 @@ scope, with the clinics' consultations, admissions and recoveries so far.
 
 ## Social and church
 
-**The city councils**: every seat, by city and portfolio, its holder and settlement. **Sunday attendance**: the
-share of the church-going cities' residents at the service each week (Emmaus and Ithemba; Newhaven has no
-congregation). **Disputes, mediations, fights**, month by month. **Relationship ties** and **Marital status (18+)**,
+**The city councils**: every seat, by city and portfolio, its holder, settlement and tenure (six elected portfolio
+seats and the health seat, held ex officio, in each city). **Sunday attendance**: the share of the church-going
+cities' residents at the service each week (in the province, Emmaus and Ithemba; Newhaven has no congregation; the
+card's note names the cities of a built world). **Disputes, mediations, fights**, month by month. **Relationship ties** and **Marital status (18+)**,
 for the province or the scope.
 
 ## Safety and the court
 
 **Incidents by kind**. **Policing and court**: incidents, arrests, court cases, convictions and road accidents, the
 kilometres driven and ambulance call-outs, and how the province got about (Hyperline, bus, minibus taxi and
-e-hailing trips). **Recent incidents**: the last forty, with where, who handled them, the outcome and the loss;
+e-hailing trips, with the fares, and day trips by air). **Recent incidents**: the last forty, with where, who handled them, the outcome and the loss;
 click one to select it on the map. **Court roll**: the last forty cases, with the charge, the hearing, the verdict
 and the sentence.
 

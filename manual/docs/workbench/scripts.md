@@ -1,6 +1,6 @@
 # Scripts
 
-A script (`*.js`) is JavaScript that runs beside the editor with the engine at hand. It can build provinces of its
+A script (`*.js`, or `*.mjs`) is JavaScript that runs beside the editor with the engine at hand. It can build provinces of its
 own and live them for decades, put experiments and Monte Carlo runs on the worker pool, pool experience over many
 seeds, and read and write the workspace's files. Its tables and plots land in the Console.
 
@@ -12,6 +12,11 @@ seeds, and read and write the workspace's files. Its tables and plots land in th
 
 - **In a worker.** A script runs in a worker of its own, beside the editor, so a long run never freezes the IDE.
   The province on screen is untouched: `province()` builds one of the script's own.
+- **On the built-in province.** `province()`, `experiment()`, `monteCarlo()` and `pooledExperience()` all build the
+  built-in province, whatever is on screen. A world made in the [Community Builder](../builder/index.md) cannot be
+  given to a script.
+- **With the API only.** The script's globals are the [Script API](script-api.md) and the worker's standard
+  JavaScript (`fetch`, `setTimeout`, `Math` and the rest); nothing of the page is in reach.
 - **As an async function.** The file is the body of an async function, so `await` works at the top level, and
   `return` ends it early.
 - **Saved first.** **Ctrl+Enter** (or **Run**) saves the file and runs it.

@@ -5,13 +5,15 @@ basis: the province dies on it, and A/E is measured against it.
 
 ## The CSV format
 
-A table is a CSV with an `age` column and one-year death probabilities:
+A table is a CSV with an `age` column (or `x`) and one-year death probabilities:
 
-- by sex, as `qx_m` and `qx_f` (or `m` and `f`, or `male` and `female`); or
-- pooled, as `qx`.
+- by sex, as `qx_m` and `qx_f` (or `m` and `f`, `male` and `female`, `males` and `females`, `q_m` and `q_f`); or
+- pooled, as `qx` (or `q`, `pooled`, `qx_pooled`).
 
-Rates may be probabilities (0.0124) or per mille (12.4): say so with `‰` in the header, or give values above 1.
-Commas, semicolons and tabs all work as separators.
+Headers are read without regard to case. Rates may be probabilities (0.0124) or per mille (12.4): say so with `‰`,
+`per1000` or `per_1000` in a header, or give any value above 1. Commas, semicolons and tabs all work as separators.
+The table needs at least two ages, in increasing order, and at most 131; rows whose age is not a number are
+skipped.
 
 ```text title="bases/stressed-sa-2024.csv"
 --8<-- "manual/generated/sample/bases/stressed-sa-2024.csv:1:6"
@@ -23,9 +25,10 @@ Commas, semicolons and tabs all work as separators.
 There are three ways:
 
 - in a [province file](province-files.md): `"mortality": "bases/your-table.csv"`, a path in the workspace;
-- in an [experiment file](experiment-files.md): `baseMortality` for every run, or `mortality` for one arm (as a
-  table inline);
-- from the province view: **Exports › Import a mortality table (CSV)** lives the province on one directly.
+- in an [experiment file](experiment-files.md): `baseMortality` for every run, or `mortality` for one arm (both as
+  a table inline, below; an experiment file does not take a CSV path);
+- from the province view: **Exports › Import a mortality table (CSV)** lives the province on one directly. It works
+  on a world from the [Community Builder](../builder/index.md) too: the world stays, and lives on the table.
 
 A table can also be written inline, in JSON:
 

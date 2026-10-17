@@ -19,7 +19,10 @@ to live on and timed shocks. Running it rebuilds the province on screen on it.
 | `$schema` | Tells the editor which schema to check the file against. The **+** menu and the sample write it for you. |
 
 A province file says everything about the province it builds: running the same file always builds the same
-province, whatever was on screen before.
+province, whatever was on screen before. It always builds the built-in province: a world made in the
+[Community Builder](../builder/index.md) is kept as a `.sce` file, not as a province file, and running a province
+file while a built world is on screen replaces the world. A field the file does not know is ignored, with a
+warning.
 
 The editor completes every field and every parameter as you type, shows each parameter's meaning, range and default
 on hover, and marks a wrong value before anything runs. When you run it, a file that is not valid JSON, or has a
@@ -53,8 +56,14 @@ deaths) except road accidents, which are a traffic process.
 ## Running it
 
 **Ctrl+Enter** (or **Run**) saves the file, rebuilds the province on it and switches to the province view, paused at
-its first morning. The Console says what it was built on (the seed, the parameters changed, the table, the shocks,
+midnight on its first day. The Console says what it was built on (the seed, the parameters changed, the table, the shocks,
 the basis hash and the residents on the first day), and the province's own *Scenario & basis* panel shows it too.
 
 To go the other way, **File › New › The Province on Screen, as a File** (or the **+** menu in the explorer) writes
-the province you have built in the panel out as a province file.
+the province you have built in the panel out as a province file, `scenarios/<region>-<seed>.province.json`, and opens
+it.
+
+!!! note "A built world does not travel in a province file"
+    With a world from the Community Builder on screen, the file this writes carries the world inside its `basis`
+    as `plan`, and running that file leaves `plan` out with a warning and builds the province. Keep a world with
+    the builder's **Save** or **Download .sce** instead.

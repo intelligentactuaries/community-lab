@@ -90,4 +90,5 @@ The .deb does not update itself: **Help › Check for Updates…** offers to ope
 ## Uninstalling
 
 The .deb as above. The AppImage is a single file: delete it. Your workspaces stay wherever you put them, and the
-app's data and logs stay in `~/.config/community-lab-ide/` until you delete that folder.
+app's data (with the worlds you saved in the builder) and logs stay in `~/.config/community-lab-ide/` until you
+delete that folder.

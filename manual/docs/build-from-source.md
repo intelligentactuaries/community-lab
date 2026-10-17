@@ -27,7 +27,7 @@ data folder instead of the system's.
 ## Checks
 
 ```bash
-bun test             # the engine's tests: determinism, the bases, the books, workspace safety, the sample
+bun test             # the engine's tests: determinism, the bases, the books, built worlds, workspace safety, the sample
 bun run typecheck    # TypeScript, strict
 ```
 
@@ -40,7 +40,8 @@ bun run desktop:dev          # the desktop app, its engine run from the source w
 bun run desktop:dist:linux   # desktop/build/: the AppImage, the .deb and latest-linux.yml
 ```
 
-`desktop:dist:win` and `desktop:dist:mac` build the other platforms. Bun cross-compiles the engine for any target,
+`desktop:dist:win` builds the Windows installer, and `desktop:dist:mac` the unsigned `.app` (the release workflow
+signs it ad hoc and makes the `.dmg`). Bun cross-compiles the engine for any target,
 but electron-builder is happiest on the target system, which is why releases are built by the workflows in
 `.github/workflows/`, one per platform. `docs/RELEASING.md` is the release checklist.
 
@@ -60,10 +61,11 @@ bun scripts/build-embed.ts                                        # the engine f
 ```text
 src/sim/          the engine: pure TypeScript, no DOM
 src/sim/layout/   the province's geography
+src/sim/plan/     world plans: the Community Builder's worlds, their checks, and the .sce format
 src/sim/finance/  the books, tax, the bank, macro and micro
 src/shared/       the exchange format, exports, templates, the workbench's file formats, the sample workspace
-src/server/       the engine's server: AI providers, dialogue, the worker pool's jobs, the workspace
-src/client/       the app: the province, its analytics, the 3D close-up, and the workbench
+src/server/       the engine's server: AI providers, dialogue, the worker pool's jobs, the workspace, saved worlds
+src/client/       the app: the province, its analytics, the 3D close-up, the Community Builder and the workbench
 src/embed/        the engine for web pages: a live province in a worker
 desktop/          the Electron app: main process, menus, the engine's supervisor, packaging
 manual/           this manual (MkDocs Material)

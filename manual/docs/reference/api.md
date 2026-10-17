@@ -6,9 +6,11 @@ outside. In the desktop app it listens on `127.0.0.1` at port 3040 or the next f
 which); from source, at 3040.
 
 !!! warning "This machine only"
-    The engine answers only requests addressed to this machine (`localhost`, `127.0.0.1`, `[::1]`): any other host
-    name gets `421`. It accepts cross-origin requests only from pages on this machine, and `POST` and `PUT` bodies
-    only as `application/json`. It has no password: anything running on this machine can call it.
+    The engine answers only requests addressed to this machine's loopback names (`localhost`, `127.0.0.1`,
+    `[::1]`), for the page as well as the API: any other host name gets `421`. It accepts cross-origin requests only
+    from pages on this machine, and a `POST` or `PUT` to the API only with the media type `application/json`
+    (anything else, `text/plain` included, gets `415`). It has no password: anything running on this machine can
+    call it.
 
 ## Health
 
@@ -28,25 +30,19 @@ curl -s http://127.0.0.1:3040/api/health
 | `GET /api/experiments/:id/export` | A finished experiment as an [exchange](../exports/exchange.md) export. |
 | `POST /api/exports` | Pooled mortality experience: `{ "kind": "experience", "seeds": 16, "years": 10, "ageWidth": 5, "group": "none", "base": {…}, "mortality": {…}, "shocks": […] }`. At most 64 seeds, 40 years and 800 province-years. |
 | `GET /api/exports/:id` | The job, and its `export` when it is done. |
-| `POST /api/batch` | A Monte Carlo run: `{ "params": {…}, "seeds": 20, "years": 30 }` (1 to 200 seeds, 1 to 60 years). |
+| `POST /api/batch` | A Monte Carlo run: `{ "params": {…}, "seeds": 20, "years": 30 }` (1 to 200 seeds, 1 to 60 years; 20 seeds and 30 years when not given). `params` are the engine's scenario parameters by name; a world from the builder goes in `params.plan`. |
+| `GET /api/batch` | The last fifty Monte Carlo runs kept, a built world named rather than included. |
 | `GET /api/batch/:id`, `GET /api/batch/:id/csv` | Its progress and summary; its runs as CSV. |
 | `GET /api/exchange` | The format's version, the indicators, the templates and the worker pool's size and load. |
 | `GET /api/templates/:id?years=10` | One of the lab's templates as a spec. |
 
-An experiment or a pooled export runs in the province unless its body carries a `world`: a world built in the
-[Community Builder](../builder/index.md), as its `.sce` file's JSON. A world that cannot run yet is refused with
-the first of its checks' errors.
+An experiment or a pooled export runs in the built-in province unless its body carries a `world`: a world built in
+the [Community Builder](../builder/index.md), as its `.sce` file's JSON or the bare world inside it. A world that
+cannot run yet is refused with `400` and the first of its checks' errors. The result's provenance then names the
+world.
 
-## Saved worlds
-
-| Method and path | What it does |
-|---|---|
-| `GET /api/plans` | The worlds saved from the builder, newest first, with a few counts each. |
-| `GET /api/plans/:id` | One world. |
-| `PUT /api/plans/:id` | Save a world (the body is the world, as JSON; its `id` must match the address). |
-| `DELETE /api/plans/:id` | Delete a saved world's file. |
-
-Poll a job's `GET` until its `status` is `done` (or `error`, or `cancelled`); `done` and `total` count runs.
+Poll a job's `GET` until its `status` is `done` (or `error`, or `cancelled`; a cancelled Monte Carlo run reads
+`error`); `done` and `total` count runs.
 
 === "curl"
 
@@ -82,6 +78,17 @@ Poll a job's `GET` until its `status` is `done` (or `error`, or `cancelled`); `d
     }
     ```
 
+## Saved worlds
+
+The worlds in the `worlds` folder of the lab's data (see [Files and environment](files.md)), a `.sce` file each:
+
+| Method and path | What it does |
+|---|---|
+| `GET /api/plans` | The saved worlds, newest first (at most 200), each with its `id`, `name`, `file`, `updated_at`, `bytes` and a few counts (buildings, houses, cities, settlements, errors, where it began). |
+| `GET /api/plans/:id` | One world, as the bare world. |
+| `PUT /api/plans/:id` | Save a world: the body is its `.sce` JSON or the bare world, sent as `application/json`; its `id` (letters, digits, `_` and `-`, at most 80) must match the address. Saving a world again replaces its file, under its new name if it was renamed. |
+| `DELETE /api/plans/:id` | Delete a saved world's file. |
+
 ## The workspace
 
 The workbench's file operations, confined to the open workspace (paths are relative to it; `..`, absolute paths and
@@ -90,10 +97,10 @@ links that lead out are refused):
 | Method and path | What it does |
 |---|---|
 | `GET /api/workspace` | The open folder, its file tree, the recent folders. |
-| `POST /api/workspace/open`, `/close`, `/create` | Open a folder (`{ "root": "/full/path" }`), close it, or create one (with the sample unless `"sample": false`). |
+| `POST /api/workspace/open`, `/close`, `/create` | Open a folder (`{ "root": "/full/path" }`, which may start with `~`), close it, or create one (`{ "parent", "name", "sample" }`: in Documents as `Community Lab` unless told otherwise, with the sample unless `"sample": false`). |
 | `GET /api/workspace/file?path=…` | A file's text and its modification time. |
 | `PUT /api/workspace/file` | Write a file (`{ "path", "text", "mtime" }`); with the `mtime` it read, a file changed since is refused with `409`. |
-| `POST /api/workspace/mkdir`, `/rename`, `/delete` | Make a folder, rename, or move to the engine's trash. |
+| `POST /api/workspace/mkdir`, `/rename`, `/delete` | Make a folder, rename (`{ "from", "to" }`), or move to the engine's trash (`data/trash/`). The desktop app's explorer uses the system's trash instead. |
 
 ## Dialogue
 

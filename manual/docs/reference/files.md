@@ -17,6 +17,7 @@ In it:
 | `data/community.db` | The engine's database: the dialogue cache, and the experiments, Monte Carlo runs and pooled exports it has kept |
 | `data/workspace.json` | The workspace you had open, and up to twelve recent ones |
 | `data/worlds/` | The worlds saved from the [Community Builder](../builder/index.md), a `.sce` file each |
+| `data/trash/` | Files the engine's own trash holds, when a workspace file is deleted without the desktop app (from source, say); the desktop app uses the system's trash |
 | `logs/server.log` | The engine's log (moved to `server.log.1` when it passes 5 MB) |
 | `logs/main.log` | The app's log (on macOS, in `~/Library/Logs/community-lab-ide/` instead) |
 | `window.json` | The window's size and position |

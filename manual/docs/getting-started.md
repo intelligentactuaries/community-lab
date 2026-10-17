@@ -1,15 +1,15 @@
 # Getting started
 
 A first hour with Community Lab IDE: watch the province live, look inside it, read its experience, ask it a
-question, and do the same from files. Each step links to the page that covers it in full.
+question, do the same from files, and build a community of your own. Each step links to the page that covers it in
+full.
 
 ## 1. Start the clock
 
-The app opens on Unity Province at dawn on its first day, **paused**. Press <kbd>Space</kbd>. At the default speed,
-a simulated minute a second, the province wakes: people get up, eat, and leave for work and school, on foot, by
-car, by bus, by minibus taxi and on the Hyperline.
-
-Press <kbd>5</kbd> for an hour a second, <kbd>3</kbd> to come back to a minute a second. [Time and the
+The app opens on Unity Province at midnight at the start of its first day, a Sunday, **paused**. Press
+<kbd>Space</kbd>. The default speed is a simulated minute a second, so the night passes slowly: press <kbd>5</kbd>
+for an hour a second, and the province wakes. People get up, eat, and go out, on foot, by car, by bus, by minibus
+taxi and on the Hyperline. Press <kbd>3</kbd> to come back to a minute a second. [Time and the
 clock](province/time.md) has every speed.
 
 ## 2. Pick someone and follow them
@@ -21,9 +21,9 @@ this month's accounts. <kbd>Esc</kbd> steps back out. [People, households and pl
 
 ## 3. Go to church on Sunday
 
-Click the **clock** in the top bar and choose **Sunday service**. The clock moves to the next Sunday at 09:00, and
-every day in between is simulated. Fly to Emmaus or Ithemba (the buttons on the right), zoom into a church, and
-watch the congregation gather; the pastor preaches, and every twenty minutes or so the room sings a hymn. Click the
+Click the **clock** in the top bar and choose **Sunday service**. The clock moves to the coming Sunday at 09:00 (the
+same day, if it is Sunday and not yet nine), and every hour in between is simulated. Fly to Emmaus or Ithemba (the
+buttons on the right), zoom into a church, and watch the congregation gather; the pastor preaches, and every twenty minutes or so the room sings a hymn. Click the
 pastor while he speaks to read the sermon's transcript. [Conversations](province/conversations.md).
 
 ## 4. Look closer
@@ -38,8 +38,8 @@ Wheel out to come back to the map. [The 3D close-up](province/3d.md).
 Press <kbd>9</kbd>: a year a second. Let ten years go by, then <kbd>Space</kbd> to pause.
 
 Click the **Mortality A/E** tile on the strip along the bottom. The drawer shows the province's deaths against the
-deaths its basis expected, by age band and sex, with intervals; ⤢ makes it full screen. Then **Population** for the
-pyramid and the year-by-year table. With four hundred people the figures are noisy, and the intervals say how
+deaths its basis expected, by age band and sex, with intervals; the expand button in its header makes it full
+screen. Then **Population** for the pyramid and the year-by-year table. With four hundred people the figures are noisy, and the intervals say how
 noisy. [Analytics](analytics/index.md), [Mortality and experience](analytics/mortality.md).
 
 ## 6. Open the books
@@ -48,9 +48,9 @@ Click **Economy**: GDP, inflation, the repo rate, unemployment. Go down the rail
 in the produce market, **Books** for any household's or business's journal and statements, and **Audit**, where
 **verify chain** re-checks every entry of the hash-chained journal. [Economy and finance](analytics/economy.md).
 
-Then click **Actuarial**: the burial society priced on the province's own table, its loading, its adjustment
-coefficient and a fan of a thousand simulated futures against its capital. [The actuarial
-workbench](analytics/actuarial.md).
+Then click **Actuarial**: under **Pricing**, the burial society priced on the province's own table and its
+loading; under **Risk & solvency**, its adjustment coefficient and a fan of a thousand simulated futures against its
+capital. [The actuarial workbench](analytics/actuarial.md).
 
 ## 7. Ask a question
 
@@ -81,6 +81,16 @@ Click **Exports** in the top bar. **Mortality experience** › **Pool on the wor
 sixteen seeds and pools their deaths and exposure; **Save to workspace** writes it into the workspace as CSV, with a
 README and the true basis it was generated on. Fit a table to it in R or Python, and score the fit against the
 answer. [Exports and data](exports/index.md).
+
+## 10. Build a community of your own
+
+Click **Build** in the top bar. The simulation pauses behind the **Community Builder**, which opens on a choice:
+pick **Masakhane, a small town**. Take a home or a church from the library on the left and click on the map to
+place it; with the **Road** tool (<kbd>R</kbd>), drag to draw a road. The **Checks** tab on the right says whether
+the world can run, and what a missing place will mean. Press **Run this world**: the simulation is rebuilt on it at day 0, paused, and every tab
+of the drawer, the lab and the exports work on it as on the province. In the builder, **Save** keeps the world as a
+`.sce` file, and **Back to the simulation** leaves the simulation as it was. [The Community
+Builder](builder/index.md).
 
 ## Where next
 

@@ -74,7 +74,12 @@ If the name is taken, the new file is `untitled 2`, `untitled 3` and so on. The 
 |---|---|
 | [`*.province.json`](province-files.md) | Rebuilds the province on screen on it, and switches to it. |
 | [`*.experiment.json`](experiment-files.md) | Runs a paired experiment on the worker pool, opens it in the lab, and keeps the result in `results/`. |
-| [`*.js`](scripts.md) | Runs a script beside the editor, with the engine, the worker pool and the workspace at hand. |
+| [`*.js`, `*.mjs`](scripts.md) | Runs a script beside the editor, with the engine, the worker pool and the workspace at hand. |
+
+Province files, experiment files and scripts work on the built-in province. A world made in the
+[Community Builder](../builder/index.md) is a `.sce` file the builder keeps, not a workspace file: running a province
+file while a built world is on screen replaces the world with the province. To run an experiment in a built world,
+use the [policy and stress lab](../analytics/lab.md) with the world on screen.
 
 The line above the editor says what a run will do before you start it: for an experiment, how many runs and
 province-years it will take and roughly how long.
@@ -87,9 +92,10 @@ of the file is applied.
 
 | File | Opens as |
 |---|---|
-| CSV, TSV | A table of its first 500 rows, with **Edit as text** |
+| CSV, TSV | A table of its first 500 rows, with **Edit as text** (and **Show as a table** to go back) |
 | `README.md` | A preview, with **Edit as text** |
-| JSON, Markdown, JavaScript, any other text | Text, in the editor |
+| Other Markdown | Text, with **Preview** |
+| JSON, JavaScript, any other text | Text, in the editor |
 
 Binary files, and files over 5 MB, are not opened. A [mortality table](mortality-tables.md) is a CSV a province can
 live on.
@@ -127,3 +133,7 @@ and links that lead somewhere else. It answers requests from this machine only.
 | New province file / Open a folder | <kbd>Ctrl</kbd>+<kbd>N</kbd> / <kbd>Ctrl</kbd>+<kbd>O</kbd> (desktop app) |
 
 On a Mac, <kbd>Cmd</kbd> in place of <kbd>Ctrl</kbd>.
+
+While the Community Builder is open, it is the whole window: **File › Save** and **Save All** save the world, and
+**Settings** and **Help** open over it. The workbench's other menu items wait, and say so, until you leave the
+builder with **Back to the simulation**.

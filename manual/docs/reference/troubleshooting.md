@@ -27,6 +27,14 @@
 ??? question "The app was already open, and launching it again did nothing"
     Only one copy runs at a time; a second launch brings the first window to the front.
 
+??? question "The window shows *Community Lab stopped*"
+    Something in the page failed. The message and the start of its trace are on the screen; **Reload Community Lab**
+    starts the page again. If it comes back, report it with the logs (see [Getting help](#getting-help)).
+
+??? question "The engine's address answers *this server answers on localhost, 127.0.0.1 or [::1] only*"
+    The engine serves this machine only, the page as well as the API. Open it as `localhost` or `127.0.0.1` on the
+    machine it runs on; another computer, or another name for this one, is refused.
+
 ## The province
 
 ??? question "Nothing moves"
@@ -51,9 +59,30 @@
     programs, or choose a smaller model.
 
 ??? question "My province is gone after restarting the app"
-    The app keeps the basis you built, not the running province: each launch starts it afresh at day 0, on the same
-    seed and basis, so the same history follows. To keep a scenario, save it as a province file (**File › New › The
-    Province on Screen, as a File**).
+    The app keeps the basis you built, and the world you ran from the builder, not the running simulation: each
+    launch starts it afresh at day 0, on the same seed and basis, so the same history follows. To keep a scenario,
+    save it as a province file (**File › New › The Province on Screen, as a File**). A built world that is too large
+    for the app's storage, or that no longer runs, is not kept: the built-in province starts instead, and the world
+    is still in its `.sce` file if you saved it.
+
+## The Community Builder
+
+??? question "**Run this world** does nothing but open the Checks"
+    Something stops the world from running: the checks under *Stops the world from running* say what. Click one to
+    fly to it. The usual ones are a door more than 60 m from a road (run a road past it), roads that do not join the
+    rest, and two buildings overlapping.
+
+??? question "A building will not go down where I click"
+    It would overlap another building or stand partly off the map; the notice on the board says which.
+    Move it a little, or hold <kbd>Alt</kbd> to place it without its door snapping to the road.
+
+??? question "*Not saved: … The draft is kept in this browser*"
+    The engine could not write the world's file. Nothing is lost: the builder keeps a draft of the world on this
+    machine and opens on it next time. Save again, or **Download .sce** to keep a copy elsewhere.
+
+??? question "*Could not open … this .sce is a Scelo project … not a Community Lab world*"
+    The file was saved by Scelo: a dataset and its analysis, not a world. Open it in Scelo. A file whose world is
+    *not a community-lab.world/1 world* may come from a newer Community Lab.
 
 ## Conversations and models
 
