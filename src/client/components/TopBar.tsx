@@ -4,7 +4,7 @@ import { APP_VERSION } from '../../shared/exports';
 import type { ProvidersInfo } from '../lib/api';
 import { store, useStore } from '../lib/simStore';
 import { builder } from '../builder/builderStore';
-import { wholeName } from '../lib/worldNames';
+import { isProvince, wholeName } from '../lib/worldNames';
 import { Chevron, Hammer, Help, Pause, Play, Rewind, Settings, Sparkle, StepFwd, Weather } from './Icons';
 
 export function TopBar({ info, aiBusy }: { info: ProvidersInfo | null; aiBusy: boolean }) {
@@ -23,7 +23,8 @@ export function TopBar({ info, aiBusy }: { info: ProvidersInfo | null; aiBusy: b
           C<sub>{APP_VERSION.split('.').slice(0, 2).join('.')}</sub>
         </span>
         <span className="name">Community Lab</span>
-        <span className="by">· {w.meta.placeName}</span>
+        {/* A world from the builder goes by its name; the province needs no caption. */}
+        {!isProvince() && <span className="by">· {w.meta.placeName}</span>}
         <div className="viewseg" role="tablist" aria-label="View">
           <button type="button" role="tab" aria-selected={!bench} className={!bench ? 'on' : ''} onClick={() => store.setView('province')} title="The province (Ctrl+1)">
             Province
