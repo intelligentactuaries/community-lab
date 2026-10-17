@@ -424,6 +424,122 @@ services. Compensation of employees sums every employer that issued a payslip,
 households employing domestic workers included. GDP by production and income
 are identities; the expenditure discrepancy is reported honestly.
 
+## Worlds built in the Community Builder (`src/sim/plan/`)
+
+A world made in the builder is a **plan** (`plan/types.ts`, saved inside a
+`.sce` file, Scelo's project file: `plan/sce.ts`): its cities and settlements with their zones and wealth tiers,
+its roads, and its buildings, each an **asset** of the catalogue
+(`plan/assets.ts`) with a footprint, the side its door faces and its options.
+The engine never reads a plan directly: `plan/derive.ts` turns it into an
+**atlas** (`atlas.ts`), the same structure the built-in province is, and each
+Simulation installs its own atlas before every step. Anything a plan states
+under `institutions` is kept as stated wherever the building it names still
+stands (the province's plan states everything); everything else is derived by
+the rules below. An unaltered province plan is recognised by its hash and runs
+as the built-in province; an altered one goes through the rules and keeps every
+choice its edits did not touch. `tests/plan.test.ts` holds the derivation to
+the province: deriving the province's own plan gives back the built-in atlas
+table for table and building for building, and a run through that path matches
+the built-in run in every person, household, vehicle, council seat and journal
+entry (only the opening line, which prints the basis hash, differs).
+
+**Buildings.** Each asset lays out its rooms and furniture with the builders
+the province was drawn with (`layout/builders.ts`, `layout/plots.ts`). Houses
+come in the province's three plots (small 46 × 82 m, Kanana's; standard
+52 × 90 m, Ebenezer's; large 72 × 92 m, Hebron's); a house facing east or west
+is the south- or north-facing layout turned on its diagonal. A street of houses
+sets its plots' gates 15 m from the centre line, the province's verge and
+pavement, at the province's spacing (3 m between standard plots, 6 m between
+estates, 14 m in the townships).
+
+**Who uses what.**
+
+| Purpose | Rule |
+|---|---|
+| A settlement's church, shop, bank counter, park, bus stop | its own, the one nearest the middle of its houses (a park before a square; a general dealer before a deli before a spaza); where it has several, each house uses its nearest |
+| A city's school, clinic, police station, court, council, medical centre, cemetery, hall, taxi rank, workshop, offices, farm, library | its own, nearest the middle of its houses |
+| A purpose the city lacks | the building of that kind nearest the middle of the world's houses; a church never falls back (a city without one is secular) |
+| Clinics with wards | every clinic, then the hospital (the central hospital: referrals for surgery and specialist care) |
+| Ambulances | one at each clinic, two at an ambulance station, one at the airfield's fire station (one at the hospital where there is no station) |
+| The produce market | the general dealer nearest the middle of the world's houses: fresh produce clears through it from the farm nearest it (its own city's first); every other farm sells under contract |
+| The Mutual Bank's head office | the branch marked *head office*, else the one nearest the middle; every other branch is a counter on the counters' pay scale |
+| Chambers and commercial banks | each city's own, else the nearest; each briefs (banks) the cities that use it |
+| Bus lines | one per city with two stops or more (or one and a terminus), from the stop farthest from the terminus, each next stop the nearest, ending at the terminus; an airport shuttle from the terminus to the airfield's stop |
+| The Hyperline | the guideway as drawn; stations are those within 60 m of it, the train drawing up at the point of the guideway nearest the platform; two stations or more run trains |
+| The airport | the airfield's terminal and runway: the runway's thresholds 40 m in from its ends, the taxiway 40 m west of it along the airside road |
+| Exits | wherever a road reaches the edge of the map; where none does, the road end nearest it |
+
+**Posts.** Every building brings the posts it cannot leave empty (a pastor for
+a church, from its settlement; a doctor and two nurses for a clinic and three
+teachers for a school, from the city; two surgeons for the hospital, from
+anywhere; see each asset's `staff`). They are filled in the province's order:
+the region's best-paid first (executives, surgeons, central bankers, pilots),
+then city by city in the province's order of jobs (pastors, the DMO, doctors,
+magistrates and clerks, attorneys and accountants, commercial bankers, nurses,
+teachers, police, shopkeepers, bank officers, taxi drivers, farmers, builders,
+vendors, farm hands, librarians, civil servants), then the rest of the region.
+A job with no place in the world to do it (a bus driver where no bus runs)
+carries no weight in the fallback job mix, and is not taken.
+
+**Books.** Each business opens on the province's own template for its kind:
+a spaza as Mama Grace's (turnover tax, not a VAT vendor); a general dealer as
+the Ebenezer market, or as Bethesda's in a working-class or low-income
+settlement; a deli as Hebron's; the mall, the towers, the chambers, the
+commercial bank and the taxi ranks as the centre's and Emmaus's; a farm as Van
+der Merwe's (SBC, VAT) or, in the poorer tiers, as Ithemba's communal farm
+(turnover tax); a workshop and the co-op offices likewise. A congregation's
+opening balances and running costs scale with its size (small: R9,000 and a
+tent; medium: R30,000 and a hall; large: R60,000 and R1.5m of property) and
+with its members' means (×0.66 to ×1.4 from low-income to the estates, 0.6 + 0.8 × the tier's wealth). The
+Mutual Bank, the burial society, the e-hailing app and the fleet exist in every
+world; the transit operator holds working capital only where buses or trains
+run; the airport company only with an airport.
+
+**Scale.** The province seats a hundred households; the operators set up for
+the whole of it scale with a built world's own households (`marketScale`,
+seeded households ÷ 100, from 0.05 to 5; 1 for the province): the e-hailing
+app's hosting and its platform, the riders from beyond the households on the
+buses and the Hyperline, and the transit operator's administration and
+insurance. In a world smaller than the province, a month with no driver-partner
+on the road idles the app's local operation (no hosting bill): without that, a
+town of a few dozen households, where full employment leaves nobody to sign up,
+put the app through business rescue every few months. Ambient public services
+cost R48,000 a month for each city with a public institution and R95,000 more
+where the world has a hospital, Government House, a reserve bank or a regional
+park or venue (the province's 3 × 48,000 + 95,000).
+
+**A settlement's own people.** A settlement draws its households from its
+tier's profile in the scenario unless the plan sets it apart
+(`PlanSettlement.profile`): any of the tier's figures (unemployment, car
+ownership, a further driver's own car, medical aid, funeral and life cover,
+opening savings in months of income, the schooling mix) may be stated for it,
+and the rest stay the tier's. Unemployment enters the fallback job mix in place
+of the tier's weight for being out of work; the other figures are drawn exactly
+as the tier's are.
+
+**Seating.** A settlement seats four households in five of its houses at the
+start unless the plan says otherwise, every other plot first so the vacancies
+interleave along the street; newcomers take the rest. A *baseline* settlement,
+if the plan names one, seats the scenario's household count with its education
+mix and cover shares, as Ebenezer does in the province; every other settlement
+draws from its tier.
+
+**A world without a place.** The checks refuse a world with no homes in a
+residential settlement, no shop, no roads, a door further than 60 m from a
+road, roads that do not join, buildings overlapping or off the map, or a
+settlement's own figures out of range (a share outside 0 to 1, savings that
+run backwards, a schooling mix that does not add up to one). Anything
+else may be missing, and the engine does without it: no school, and children
+stay home on school days; no clinic, and the sick are nursed at home with a
+quarter of a clinic's care (the care quality × 0.25 of an unstaffed clinic);
+no police, and incidents are left to the neighbours; no court, and cases are
+heard at the regional court out of town (no attendance, a verdict as usual); no
+cemetery, and the dead are buried out of town; no church, and the city is
+secular (Sunday in the park, weddings at the court or the hall, funerals at the
+hall or at home); no farm, and the produce market buys in from the wholesaler;
+no medical centre, and the council's health seat stays empty; no airport, no flights;
+no buses or Hyperline, no transit operator's running costs.
+
 ## Economy and finance (`src/sim/finance/`)
 
 Every rand in the community is posted to double-entry books (`accounts.ts`):

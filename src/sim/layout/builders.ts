@@ -12,8 +12,8 @@ export type Facing = 'N' | 'S' | 'E' | 'W';
 let spotSeq = 0;
 
 /** Spot ids run in one sequence across every layout, so a rebuild reproduces them. */
-export function resetSpots(): void {
-  spotSeq = 0;
+export function resetSpots(from = 0): void {
+  spotSeq = from;
 }
 
 export function spot(kind: Spot['kind'], x: number, y: number): Spot {
@@ -101,7 +101,7 @@ function apron(id: string, name: string, x: number, y: number, w: number, h: num
   }
 }
 
-interface Box {
+export interface Box {
   id: string;
   name: string;
   com: CommunityId;

@@ -1,5 +1,6 @@
 // Deterministic street trees along the road graph, plus stands in the parks and
 // the cemetery. Shared by the flat map and the 3D scene so both plant the same trees.
+import { activeAtlas } from '../../sim/atlas';
 import type { World } from '../../sim/types';
 
 export interface TreeSeed {
@@ -15,11 +16,13 @@ export function treeSeeds(world: World): TreeSeed[] {
   const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
   const arterial = new Set(['Unity Road', 'Hebron Approach', 'Kanana Approach', 'Progress Road', 'Ithemba Road', 'Central Avenue', 'Unity Boulevard']);
   const highway = new Set(['N1 Unity Highway', 'Western Ring Road', 'Eastern Ring Road']);
+  // A built world names its own roads: there the carriageway's width says what kind of road it is.
+  const built = activeAtlas().plan !== null;
   for (const e of world.roads.edges) {
     if (e.name === 'Airside Road') continue; // nothing grows on the apron
     const a = world.roads.nodes[e.a];
     const b = world.roads.nodes[e.b];
-    const step = highway.has(e.name) ? 48 : arterial.has(e.name) ? 30 : 16;
+    const step = highway.has(e.name) || (built && e.width >= 11) ? 48 : arterial.has(e.name) || (built && e.width >= 9) ? 30 : 16;
     const n = Math.floor(e.length / step);
     const dx = (b.x - a.x) / e.length;
     const dy = (b.y - a.y) / e.length;

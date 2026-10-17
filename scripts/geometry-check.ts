@@ -85,7 +85,7 @@ if (new Set(plots).size !== plots.length) err('duplicate plot numbers');
 const KINDS: LandmarkKind[] = ['shop', 'bank', 'park', 'busstop', 'hall', 'cemetery', 'school', 'clinic', 'police', 'court', 'council', 'medical', 'taxi', 'workshop', 'office', 'farm'];
 for (const c of COMMUNITIES) {
   for (const k of KINDS) {
-    const id = landmark(c.id, k as 'shop');
+    const id = landmark(c.id, k as 'shop') ?? '';
     if (!b[id]) err(`landmark ${k} of ${c.id} → ${id} does not exist`);
   }
   const ch = landmark(c.id, 'church');

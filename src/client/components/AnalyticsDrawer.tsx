@@ -22,6 +22,7 @@ import { store, useStore, type AnalyticsScope } from '../lib/simStore';
 import { CITIES, CITY, COMMUNITIES, COMMUNITY, residentialOf } from '../../sim/world';
 import type { CityId, CommunityId, Person, World } from '../../sim/types';
 import { useTheme } from '../lib/theme';
+import { isProvince, wholeName, wholeOption } from '../lib/worldNames';
 import { Close, Expand } from './Icons';
 
 // ─── Analysis scope: the province, one city, one settlement, one household or one person ───
@@ -43,7 +44,16 @@ function scopeLabel(w: World, s: AnalyticsScope): string {
     const p = w.people[s.id];
     return p ? `${p.firstName} ${p.surname}` : '?';
   }
-  return 'the province';
+  return wholeName();
+}
+
+/** Which cities go to church on a Sunday and which have no congregation (the attendance chart's note). */
+function churchNote(): string {
+  const cities = CITIES.filter((c) => c.kind === 'city');
+  const devout = cities.filter((c) => c.religious).map((c) => c.name);
+  const secular = cities.filter((c) => !c.religious).map((c) => c.name);
+  const and = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+  return `weekly · ${and(devout) || 'no congregation anywhere'}${secular.length ? `; ${and(secular)} ${secular.length === 1 ? 'has' : 'have'} no congregation` : ''}`;
 }
 
 function useScope(): { scope: AnalyticsScope; people: Person[]; label: string; narrowed: boolean } {
@@ -93,7 +103,7 @@ function ScopePicker({ tab }: { tab: string }) {
         );
       }}
     >
-      <option value="all">Whole province</option>
+      <option value="all">{wholeOption()}</option>
       <optgroup label="Cities">
         {CITIES.filter((c) => c.kind === 'city').map((c) => (
           <option key={c.id} value={`t:${c.id}`}>{c.name}</option>
@@ -106,7 +116,7 @@ function ScopePicker({ tab }: { tab: string }) {
       </optgroup>
       <optgroup label="Households">
         {hhs.map((h) => (
-          <option key={h.id} value={`h:${h.id}`}>{h.name} · {COMMUNITY[w.buildings[h.houseId]?.community ?? 'ebenezer'].short}</option>
+          <option key={h.id} value={`h:${h.id}`}>{h.name} · {COMMUNITY[w.buildings[h.houseId]?.community ?? '']?.short ?? ''}</option>
         ))}
       </optgroup>
       <optgroup label="People">
@@ -240,12 +250,12 @@ function PopulationTab() {
           <EChart option={lineOption(th, x, [{ name: 'population', data: series.map((s) => s.population) }, { name: 'children (<15)', data: series.map((s) => s.children) }, { name: '65+', data: series.map((s) => s.elderly) }, { name: 'households', data: series.map((s) => s.households) }])} />
         )}
       </Viz>
-      <Viz title={scope.kind === 'city' ? `${label}: settlements` : 'Cities: population'} note={scope.kind === 'city' ? residentialOf(scope.id).map((id) => COMMUNITY[id].name).join(' · ') : 'Emmaus · Newhaven · Ithemba'}>
+      <Viz title={scope.kind === 'city' ? `${label}: settlements` : 'Cities: population'} note={scope.kind === 'city' ? residentialOf(scope.id).map((id) => COMMUNITY[id].name).join(' · ') : CITIES.filter((c) => c.kind === 'city').map((c) => c.name).join(' · ')}>
         <EChart option={lineOption(th, x, scope.kind === 'city'
           ? residentialOf(scope.id).map((id) => ({ name: COMMUNITY[id].name, data: series.map((s) => s.byCommunity?.[id]?.population ?? null) }))
           : CITIES.filter((c) => c.kind === 'city').map((c) => ({ name: c.name, data: series.map((s) => s.byCity?.[c.id]?.population ?? null) })))} />
       </Viz>
-      <Viz title={scope.kind === 'city' ? `${label}: household income` : 'Cities: household income'} note="mean monthly household income" info="Mean household income per city, or per settlement of the chosen city — from the estates of Hebron Heights to the townships of Ithemba.">
+      <Viz title={scope.kind === 'city' ? `${label}: household income` : 'Cities: household income'} note="mean monthly household income" info={isProvince() ? 'Mean household income per city, or per settlement of the chosen city — from the estates of Hebron Heights to the townships of Ithemba.' : 'Mean household income per city, or per settlement of the chosen city.'}>
         <EChart option={lineOption(th, x, scope.kind === 'city'
           ? residentialOf(scope.id).map((id) => ({ name: COMMUNITY[id].name, data: series.map((s) => s.byCommunity?.[id]?.meanIncome ?? null) }))
           : CITIES.filter((c) => c.kind === 'city').map((c) => ({ name: c.name, data: series.map((s) => s.byCity?.[c.id]?.meanIncome ?? null) })), moneyAxis)} />
@@ -533,7 +543,7 @@ function SocialTab() {
           </tbody>
         </table></Tbl>
       </Viz>
-      <Viz title="Sunday attendance (share of the church-going cities' residents)" note="weekly · Emmaus and Ithemba; Newhaven has no congregation">
+      <Viz title="Sunday attendance (share of the church-going cities' residents)" note={churchNote()}>
         <EChart option={lineOption(th, x, [{ name: 'attendance %', data: church.map((c) => Math.round((c.attendance / Math.max(1, c.population)) * 100)) }], (v: number) => `${v}%`)} />
       </Viz>
       <Viz title="Disputes, mediations, fights">

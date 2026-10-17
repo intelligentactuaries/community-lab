@@ -3,7 +3,8 @@
 // build, ancestry and face and body details (body/shape.ts), posed into the
 // rest pose the animator expects (body/rest.ts) and scaled to the person's
 // height; eyes, eyebrows, eyelashes and hair fitted to it the way MakeHuman
-// fits them; skin painted over photographic skin maps in any tone, with
+// fits them, and the clothes layered over it and each other so nothing shows
+// through (body/dressing.ts); skin painted over photographic skin maps in any tone, with
 // stubble, a close crop and the lines of age where they belong. Each person
 // has a skeleton of their own (the kit's joints for their body) and a few
 // meshes: the skin, the eyes, the hair (with brows and lashes), the clothes.
@@ -15,35 +16,21 @@ import hairUrl from './assets/people/hair.webp?url';
 import kitUrl from './assets/people/kit.bin?url';
 import skinDarkUrl from './assets/people/skin_dark.jpg?url';
 import skinLightUrl from './assets/people/skin_light.jpg?url';
-import { buildBody, gather, seamlessNormals, toRest, type Body } from './body/build';
-import { loadKit, type Kit, type ProxyInfo } from './body/kit';
+import { buildBody, gather, seamlessNormals, type Body } from './body/build';
+import { dress, dressKit, layerOf, prepareStep, type DressKit, type Layer } from './body/dressing';
+import { loadKit, type Kit } from './body/kit';
+import { fitProxy, proxyData, proxyTriangles, type ProxyData } from './body/proxy';
 import type { BodyParams } from './body/shape';
 import { HAIR_STYLES, type Look } from './look';
 
 export type { Look };
 
-export interface ProxyKit {
-  info: ProxyInfo;
-  ref: Uint16Array;
-  /** Binding weights (steps of 1/4096) and offsets (16-bit steps of offScale metres). */
-  w: Int16Array;
-  off: Int16Array;
-  offScale: number;
-  scale: Array<[number, number, number] | null>;
-  /** Skin weights in the kit's bones (for the rest pose), and per render vertex in the animated bones (for the GPU). */
-  kitSkinIndex: Uint8Array;
-  kitSkinWeight: Float32Array;
+/** A proxy (see body/proxy.ts) with its skin weights per render vertex in the animated bones, for the GPU. */
+export interface ProxyKit extends ProxyData {
   skinIndex: THREE.BufferAttribute;
   skinWeight: THREE.BufferAttribute;
-  src: Uint16Array;
-  uv: THREE.BufferAttribute;
-  index: Uint16Array;
-  deletes: Uint16Array;
-  /** Clothes: the body's triangles it hides, and each render vertex's colour slot within the garment. */
-  hide: Uint16Array | null;
-  slot: Uint8Array | null;
-  count: number;
-  renderCount: number;
+  /** Its triangles over its own vertices (the render triangles' order). */
+  tris: Uint16Array;
 }
 
 export interface HumanKit {
@@ -54,6 +41,8 @@ export interface HumanKit {
   animOf: Uint8Array;
   body: { src: Uint16Array; uv: THREE.BufferAttribute; index: THREE.BufferAttribute; skinIndex: THREE.BufferAttribute; skinWeight: THREE.BufferAttribute; count: number };
   proxies: Map<string, ProxyKit>;
+  /** Layering clothes over the body and each other (body/dressing.ts). */
+  dress: DressKit;
   tex: { skinLight: THREE.Texture; skinDark: THREE.Texture; fields: THREE.Texture; hair: THREE.Texture; eyes: THREE.Texture; clothes: THREE.Texture };
   /** The skin maps' own tones (linear), and their luminances. */
   tone: { light: THREE.Vector3; dark: THREE.Vector3 };
@@ -82,9 +71,23 @@ export function loadHumans(): Promise<HumanKit> {
   loading ??= Promise.all([loadKit(kitUrl), texture(skinLightUrl), texture(skinDarkUrl), texture(fieldsUrl), texture(hairUrl), texture(eyesUrl), texture(clothesUrl)]).then(([k, skinLight, skinDark, fields, hair, eyes, clothes]) => {
     measureIrises(eyes.image as ImageBitmap);
     kit = makeKit(k, { skinLight, skinDark, fields, hair, eyes, clothes });
+    prepareWhenIdle(kit.dress);
     return kit;
   });
   return loading;
+}
+
+/** Work out how the clothes lie, a garment at a time while the page is idle, so a crowd coming into view is dressed at once. */
+function prepareWhenIdle(dk: DressKit): void {
+  const idle = (f: () => void) => {
+    const ric = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    if (ric) ric(f, { timeout: 2000 });
+    else setTimeout(f, 60);
+  };
+  const step = () => {
+    if (prepareStep(dk)) idle(step);
+  };
+  idle(step);
 }
 
 /**
@@ -210,7 +213,8 @@ function texture(url: string): Promise<THREE.Texture> {
   });
 }
 
-function makeKit(k: Kit, tex: HumanKit['tex']): HumanKit {
+/** The kit made ready for figures: the animated bones, the GPU attributes, dressing (exported for the tests). */
+export function makeKit(k: Kit, tex: HumanKit['tex']): HumanKit {
   const isFinger = (n: string) => /^f\d\d[LR]$/.test(n);
   const names: string[] = [];
   const animOf = new Uint8Array(k.boneNames.length);
@@ -251,60 +255,13 @@ function makeKit(k: Kit, tex: HumanKit['tex']): HumanKit {
   };
   const proxies = new Map<string, ProxyKit>();
   for (const info of k.meta.proxies ?? []) {
-    const key = info.key as string;
-    const sw8 = k.array(`${key}.skinWeight`) as Uint8Array;
-    const kitSkinWeight = new Float32Array(sw8.length);
-    for (let i = 0; i < sw8.length; i++) kitSkinWeight[i] = sw8[i] / 255;
-    const kitSkinIndex = k.array(`${key}.skinIndex`) as Uint8Array;
-    const src = k.array(`${key}.src`) as Uint16Array;
-    const s = skinAttrs(src, kitSkinIndex, kitSkinWeight);
-    proxies.set(key, {
-      info,
-      ref: k.array(`${key}.ref`) as Uint16Array,
-      w: k.array(`${key}.w`) as Int16Array,
-      off: k.array(`${key}.off`) as Int16Array,
-      offScale: (info.offScale as number) ?? 1,
-      scale: info.scale,
-      kitSkinIndex,
-      kitSkinWeight,
-      skinIndex: s.skinIndex,
-      skinWeight: s.skinWeight,
-      src,
-      uv: new THREE.BufferAttribute(k.array(`${key}.uv`) as Uint16Array, 2, true),
-      index: k.array(`${key}.index`) as Uint16Array,
-      deletes: k.array(`${key}.deletes`) as Uint16Array,
-      hide: k.has(`${key}.hide`) ? (k.array(`${key}.hide`) as Uint16Array) : null,
-      slot: k.has(`${key}.slot`) ? (k.array(`${key}.slot`) as Uint8Array) : null,
-      count: info.vertices,
-      renderCount: src.length,
-    });
+    const d = proxyData(k, info);
+    const s = skinAttrs(d.src, d.kitSkinIndex, d.kitSkinWeight);
+    proxies.set(d.key, { ...d, skinIndex: s.skinIndex, skinWeight: s.skinWeight, tris: proxyTriangles(d) });
   }
   const tl = (k.meta.skin as { toneLight: number[]; toneDark: number[] }).toneLight;
   const td = (k.meta.skin as { toneLight: number[]; toneDark: number[] }).toneDark;
-  return { kit: k, names, parents, animOf, body, proxies, tex, tone: { light: new THREE.Vector3(...tl), dark: new THREE.Vector3(...td) } };
-}
-
-/** A proxy's vertices fitted to a body (as MakeHuman fits them), then carried into the rest pose and scale. */
-function fitProxy(p: ProxyKit, body: Body, out: Float32Array): void {
-  const v = body.modelled;
-  const s = [1, 1, 1];
-  for (let n = 0; n < 3; n++) {
-    const sc = p.scale[n];
-    if (sc) s[n] = Math.abs(v[sc[0] * 3 + n] - v[sc[1] * 3 + n]) / sc[2];
-  }
-  const { ref, w, off } = p;
-  const W = 1 / 4096;
-  const O = p.offScale;
-  for (let i = 0; i < p.count; i++) {
-    const a = ref[i * 3] * 3;
-    const b = ref[i * 3 + 1] * 3;
-    const c = ref[i * 3 + 2] * 3;
-    const wa = w[i * 3] * W;
-    const wb = w[i * 3 + 1] * W;
-    const wc = w[i * 3 + 2] * W;
-    for (let k = 0; k < 3; k++) out[i * 3 + k] = wa * v[a + k] + wb * v[b + k] + wc * v[c + k] + off[i * 3 + k] * O * s[k];
-  }
-  toRest(body, out, p.count, p.kitSkinIndex, p.kitSkinWeight);
+  return { kit: k, names, parents, animOf, body, proxies, dress: dressKit(k, proxies), tex, tone: { light: new THREE.Vector3(...tl), dark: new THREE.Vector3(...td) } };
 }
 
 /** Static attributes of several proxies drawn as one mesh (shared by everyone wearing the same set). */
@@ -334,7 +291,7 @@ function merged(k: HumanKit, keys: string[], slots: number[]): Merged {
   let o = 0;
   let t = 0;
   parts.forEach((p, pi) => {
-    uv.set(p.uv.array as Uint16Array, o * 2);
+    uv.set(p.uv, o * 2);
     if (p.slot) for (let i = 0; i < p.renderCount; i++) slot[o + i] = slots[pi] + p.slot[i];
     else slot.fill(slots[pi], o, o + p.renderCount);
     si.set(p.skinIndex.array as Uint16Array, o * 4);
@@ -359,32 +316,34 @@ function merged(k: HumanKit, keys: string[], slots: number[]): Merged {
 const IDENTITY = new THREE.Matrix4();
 const tmpC = new THREE.Color();
 const tmpV3 = new THREE.Vector3();
+/** What has pockets to put the hands in. */
+const POCKETED = new Set(['m_jeans', 'm_trousers', 'm_shorts', 'f_jeans', 'f_shorts', 'f_capri', 'm_overalls']);
+/** A phone: 7 by 14.5 cm, 8 mm thick, dark glass and metal. */
+const PHONE_GEO = new THREE.BoxGeometry(0.07, 0.145, 0.008);
+const PHONE_MAT = new THREE.MeshStandardMaterial({ color: '#16181C', roughness: 0.3, metalness: 0.35 });
 /** The light bodies' material: colour per vertex (everyone shares it). */
 const LOD_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0 });
 /** Colour slots for a person's clothes (a garment has one to three). */
 const CLOTH_SLOTS = 16;
 
+/** The body's and the clothes' triangles less what an outfit hides, by sex and outfit (shared by all who wear it). */
 const bodyIndexCache = new Map<string, THREE.BufferAttribute>();
-/** The body's triangles less those the garments hide (shared by everyone wearing the same garments). */
-function bodyIndex(k: HumanKit, ids: string[]): THREE.BufferAttribute {
-  const key = [...ids].sort().join('|');
-  let a = bodyIndexCache.get(key);
-  if (a) return a;
-  const all = k.body.index.array as Uint16Array;
-  if (!ids.length) {
-    a = k.body.index;
-  } else {
-    const hidden = new Uint8Array(all.length / 3);
-    for (const id of ids) {
-      const h = k.proxies.get(`clothes.${id}`)?.hide;
-      if (h) for (let i = 0; i < h.length; i++) hidden[h[i]] = 1;
-    }
-    const out: number[] = [];
-    for (let t = 0; t < hidden.length; t++) if (!hidden[t]) out.push(all[t * 3], all[t * 3 + 1], all[t * 3 + 2]);
-    a = new THREE.BufferAttribute(new Uint16Array(out), 1);
+const clothIndexCache = new Map<string, THREE.BufferAttribute>();
+
+/** Triangles (index triples) less the hidden ones; the same array when none is hidden. */
+function shown<T extends Uint16Array | Uint32Array>(index: T, hidden: Uint8Array | null, make: (n: number) => T): T {
+  let n = 0;
+  if (hidden) for (let t = 0; t < hidden.length; t++) n += hidden[t];
+  if (!n) return index;
+  const out = make(index.length - n * 3);
+  let o = 0;
+  for (let t = 0; t < index.length / 3; t++) {
+    if (hidden![t]) continue;
+    out[o++] = index[t * 3];
+    out[o++] = index[t * 3 + 1];
+    out[o++] = index[t * 3 + 2];
   }
-  bodyIndexCache.set(key, a);
-  return a;
+  return out;
 }
 
 /** One person's figure. */
@@ -439,9 +398,14 @@ export class Human {
   scale = 1;
   /** Kept for the labels: the head's size relative to an adult's. */
   headScale = 1;
-  /** Standing hip height and the legs, metres (for the animator). */
+  /**
+   * Standing hip height and the legs, metres (for the animator): the bones' lengths, the ankle's height, how far the hip
+   * joints lie below the pelvis's and out from the middle (hipHalf), where the feet stand in the rest pose (footX, out
+   * from the middle), how far out the body is widest about the hips and thighs (hipWidth), and half the thigh's depth
+   * (thighHalf: how far the top of the thigh stands above the bone when seated).
+   */
   hipY = 0.9;
-  legs = { thigh: 0.42, shin: 0.42, ankle: 0.085, hipDrop: 0.025, seat: 0.1 };
+  legs = { thigh: 0.42, shin: 0.42, ankle: 0.085, hipDrop: 0.025, seat: 0.1, hipHalf: 0.09, footX: 0.12, hipWidth: 0.18, thighHalf: 0.075 };
   /** Eye height above the hips, and the top of the head above the head joint. */
   eyeY = 0.68;
   headTop = 0.16;
@@ -452,6 +416,14 @@ export class Human {
   far = false;
   /** The build's stoutness (1 an average build): the girth of the capsules that stand for the body. */
   stout = 1;
+  /** Whether what they wear below has pockets to put the hands in (trousers, jeans, shorts, overalls). */
+  pockets = true;
+  /** How far what they wear stands above the tops of the thighs when they sit (a full skirt bunches up in the lap). */
+  lapCloth = 0.01;
+  /** A phone, held in the right hand when they look at it (made when first needed). */
+  private phone: THREE.Mesh | null = null;
+  /** Where a phone lies in the right palm: its place and turn in the hand bone's frame. */
+  private palm = { pos: new THREE.Vector3(), quat: new THREE.Quaternion() };
 
   constructor(readonly kit: HumanKit) {
     const bones = kit.names.map((name) => {
@@ -542,7 +514,26 @@ export class Human {
     }
     this.height = look.height;
     this.stout = 0.85 + 0.4 * look.weight;
+    this.pockets = look.wear.some((w) => POCKETED.has(w.id));
+    this.lapCloth = look.wear.some((w) => w.id === 'skirt_long' || w.id === 'skirt_knee') ? 0.055 : look.wear.some((w) => w.id === 'coat' || w.id === 'f_skirt' || w.id === 'onesie') ? 0.025 : 0.01;
     this.update();
+  }
+
+  /** What the hands hold: a phone in the right hand, or nothing. */
+  setProp(prop: 'phone' | null): void {
+    const show = prop === 'phone' && !this.far;
+    if (show && !this.phone) {
+      this.phone = new THREE.Mesh(PHONE_GEO, PHONE_MAT);
+      this.phone.castShadow = false;
+      this.bone('handR').add(this.phone);
+    }
+    if (!this.phone) return;
+    this.phone.visible = show;
+    if (show) {
+      this.phone.position.copy(this.palm.pos);
+      this.phone.quaternion.copy(this.palm.quat);
+      this.phone.scale.setScalar(this.armScale);
+    }
   }
 
   /**
@@ -599,6 +590,11 @@ export class Human {
   private buildNear(look: Look, wearIds: string[]): void {
     const k = this.kit;
     const body = this.built!;
+    // The clothes, fitted and layered: each lifted clear of the skin and of what is worn under it, and what lies well
+    // under another layer not drawn (the skin under them too).
+    const layers = wearIds.map((id) => layerOf(k.proxies.get(`clothes.${id}`)!, id, body, wearIds));
+    const dressed = dress(k.dress, body, look.sex, layers);
+    const byId = new Map(layers.map((l) => [l.id, l]));
     const g = this.body.geometry;
     const pos = new Float32Array(k.body.count * 3);
     gather(body.pos, k.body.src, pos);
@@ -606,7 +602,16 @@ export class Human {
     seamlessNormals(body.pos, k.body.src, k.body.index.array as Uint16Array, k.kit.vertices, nor);
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-    g.setIndex(bodyIndex(k, wearIds));
+    // (What an outfit hides is the same for everyone of a sex who wears it: shared.)
+    const outfit = `${look.sex}|${wearIds.join(',')}`;
+    let bodyIdx = bodyIndexCache.get(outfit);
+    if (!bodyIdx) {
+      const all = k.body.index.array as Uint16Array;
+      const idx = shown(all, dressed.bodyHidden, (n) => new Uint16Array(n));
+      bodyIdx = idx === all ? k.body.index : new THREE.BufferAttribute(idx, 1);
+      bodyIndexCache.set(outfit, bodyIdx);
+    }
+    g.setIndex(bodyIdx);
     this.setProxies(this.eyes, merged(k, ['eyes.eyes'], [0]));
     const hairKeys: string[] = [];
     const hairSlots: number[] = [];
@@ -625,7 +630,7 @@ export class Human {
       n += k.proxies.get(`clothes.${id}`)!.info.slots?.length ?? 1;
     }
     if (wearIds.length) {
-      const cp = this.setProxies(this.clothes, merged(k, wearIds.map((id) => `clothes.${id}`), bases));
+      const cp = this.setProxies(this.clothes, merged(k, wearIds.map((id) => `clothes.${id}`), bases), wearIds.map((id) => byId.get(id)!), outfit);
       let lo = Infinity;
       for (let i = 1; i < cp.length; i += 3) lo = Math.min(lo, cp[i]);
       this.footLift = Math.max(0, -lo);
@@ -706,6 +711,10 @@ export class Human {
       ankle: foot.y,
       hipDrop: hips.y - thigh.y,
       seat: 0.1 * (thigh.distanceTo(shin) / 0.42),
+      hipHalf: Math.abs(thigh.x - hips.x),
+      footX: Math.abs(foot.x - hips.x),
+      hipWidth: hipWidth(k.kit, b, thigh.y, shin.y),
+      thighHalf: thighHalf(k.kit, b, (thigh.y + shin.y) / 2),
     };
     this.eyeY = at('eyeL').y - hips.y;
     this.headTop = pt('headTop').y - at('head').y;
@@ -716,21 +725,37 @@ export class Human {
     this.u.eyeR.value = 0.012 * this.headScale;
     this.arms = armsRest(at);
     this.armScale = (this.arms.L.l1 + this.arms.L.l2) / 0.53;
+    // The right palm: along the hand to its middle, the phone's back against it and its screen facing the way the palm
+    // does, its long side along the fingers.
+    const hand = at('handR');
+    const along = at('f31R').sub(hand).normalize();
+    const across = at('f21R').sub(at('f51R'));
+    const palmward = across.clone().cross(along).normalize();
+    across.copy(along).cross(palmward).normalize();
+    this.palm.pos.copy(along).multiplyScalar(0.075 * this.armScale).addScaledVector(palmward, 0.022 * this.armScale);
+    this.palm.quat.setFromRotationMatrix(new THREE.Matrix4().makeBasis(across, along, palmward));
   }
 
-  private setProxies(mesh: THREE.SkinnedMesh, m: Merged): Float32Array {
+  /**
+   * Put proxies on a mesh: fitted to the body (or, for clothes, as dressing laid them, given in the parts' order),
+   * less the triangles hidden under other layers.
+   */
+  private setProxies(mesh: THREE.SkinnedMesh, m: Merged, laid?: Layer[], outfit?: string): Float32Array {
     const body = this.built!;
     const pos = new Float32Array(m.count * 3);
     const nor = new Float32Array(m.count * 3);
     let o = 0;
-    for (const p of m.parts) {
-      const fitted = new Float32Array(p.count * 3);
-      fitProxy(p, body, fitted);
+    m.parts.forEach((p, pi) => {
+      let fitted = laid?.[pi]?.pos;
+      if (!fitted) {
+        fitted = new Float32Array(p.count * 3);
+        fitProxy(p, body, fitted);
+      }
       const pp = pos.subarray(o * 3, (o + p.renderCount) * 3);
       gather(fitted, p.src, pp);
       seamlessNormals(fitted, p.src, p.index, p.count, nor.subarray(o * 3, (o + p.renderCount) * 3));
       o += p.renderCount;
-    }
+    });
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
@@ -738,7 +763,22 @@ export class Human {
     g.setAttribute('slot', m.slot);
     g.setAttribute('skinIndex', m.skinIndex);
     g.setAttribute('skinWeight', m.skinWeight);
-    g.setIndex(m.index);
+    let index = (outfit && clothIndexCache.get(outfit)) || m.index;
+    if (index === m.index && laid?.some((l) => l.hidden.some((x) => x))) {
+      // Each part's render triangles are its triangles in the same order: drop the hidden ones (the same for everyone of
+      // a sex in this outfit: shared).
+      const all = m.index.array as Uint32Array;
+      const hidden = new Uint8Array(all.length / 3);
+      let t = 0;
+      m.parts.forEach((p, pi) => {
+        const h = laid[pi]?.hidden;
+        if (h) hidden.set(h, t);
+        t += p.index.length / 3;
+      });
+      index = new THREE.BufferAttribute(shown(all, hidden, (n) => new Uint32Array(n)), 1);
+      if (outfit) clothIndexCache.set(outfit, index);
+    }
+    g.setIndex(index);
     mesh.geometry.dispose();
     mesh.geometry = g;
     return pos;
@@ -781,6 +821,71 @@ export interface ArmsRest {
   R: ArmRest;
   /** Between the shoulders (reach targets are given from here). */
   mid: THREE.Vector3;
+}
+
+/** How many of the kit's shipped vertices are the body's own (the helpers MakeHuman fits clothes to come after them). */
+const bodyCount = new WeakMap<Kit, number>();
+function bodyVertices(k: Kit): number {
+  let n = bodyCount.get(k);
+  if (n === undefined) {
+    const src = k.array('body.src') as Uint16Array;
+    n = 0;
+    for (let i = 0; i < src.length; i++) n = Math.max(n, src[i] + 1);
+    bodyCount.set(k, n);
+  }
+  return n;
+}
+
+/**
+ * How far out from the middle the body is widest about the hips and down the thighs (where hanging hands come
+ * by them, however long the arms), in the rest pose: over the vertices the pelvis and thighs carry, from just above
+ * the knee to a little above the hip joints.
+ */
+function hipWidth(k: Kit, b: Body, hipJointY: number, kneeY: number): number {
+  const names = k.boneNames;
+  const carry = new Set(['hips', 'spine', 'thighL', 'thighR'].map((n) => names.indexOf(n)));
+  const lo = kneeY + (hipJointY - kneeY) * 0.15;
+  const hi = hipJointY + 0.06 * (b.height / 1.7);
+  let w = 0;
+  for (let v = 0; v < bodyVertices(k); v++) {
+    const y = b.pos[v * 3 + 1];
+    if (y < lo || y > hi) continue;
+    let best = 0;
+    let bone = -1;
+    for (let j = 0; j < 4; j++) {
+      const wt = k.skinWeight[v * 4 + j];
+      if (wt > best) {
+        best = wt;
+        bone = k.skinIndex[v * 4 + j];
+      }
+    }
+    if (carry.has(bone)) w = Math.max(w, Math.abs(b.pos[v * 3]));
+  }
+  return w || 0.18 * (b.height / 1.7);
+}
+
+/** Half the thigh's depth front to back at mid-thigh (seated, its thickness above the bone): over the left thigh's vertices. */
+function thighHalf(k: Kit, b: Body, y0: number): number {
+  const bone = k.boneNames.indexOf('thighL');
+  let lo = Infinity;
+  let hi = -Infinity;
+  const band = 0.03 * (b.height / 1.7);
+  for (let v = 0; v < bodyVertices(k); v++) {
+    if (Math.abs(b.pos[v * 3 + 1] - y0) > band) continue;
+    let best = 0;
+    let dom = -1;
+    for (let j = 0; j < 4; j++) {
+      const wt = k.skinWeight[v * 4 + j];
+      if (wt > best) {
+        best = wt;
+        dom = k.skinIndex[v * 4 + j];
+      }
+    }
+    if (dom !== bone) continue;
+    lo = Math.min(lo, b.pos[v * 3 + 2]);
+    hi = Math.max(hi, b.pos[v * 3 + 2]);
+  }
+  return hi > lo ? (hi - lo) / 2 : 0.075 * (b.height / 1.7);
 }
 
 function armsRest(at: (n: string) => THREE.Vector3): ArmsRest {
@@ -854,7 +959,7 @@ function skinLighting(): string {
  * and light that scatters below the surface.
  */
 function skinMaterial(k: HumanKit, u: Uniforms): THREE.MeshStandardMaterial {
-  const m = new THREE.MeshPhysicalMaterial({ map: k.tex.skinLight, roughness: 0.6, metalness: 0, ior: 1.45, normalMap: microNormals(), normalScale: new THREE.Vector2(0.3, 0.3), sheen: 0.14, sheenRoughness: 0.75, sheenColor: new THREE.Color(0.25, 0.23, 0.176) });
+  const m = new THREE.MeshPhysicalMaterial({ map: k.tex.skinLight, roughness: 0.6, metalness: 0, ior: 1.45, normalMap: typeof document === 'undefined' ? null : microNormals(), normalScale: new THREE.Vector2(0.3, 0.3), sheen: 0.14, sheenRoughness: 0.75, sheenColor: new THREE.Color(0.25, 0.23, 0.176) });
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u, { skinDark: { value: k.tex.skinDark }, fields: { value: k.tex.fields } });
     sh.fragmentShader = sh.fragmentShader
@@ -971,7 +1076,11 @@ function hairMaterial(k: HumanKit, u: Uniforms): THREE.MeshStandardMaterial {
   return m;
 }
 
-/** Clothes: each garment's shading from the atlas in the person's colours (slot 'own' keeps the texture's colours). */
+/**
+ * Clothes: each garment's shading from the atlas in the person's colours (slot 'own' keeps the texture's colours). A
+ * garment of several colours made in one piece (a suit: its jacket, the shirt and the tie) marks which each texel takes
+ * in the atlas's green (0, ½, 1: its first, second or third colour).
+ */
 function clothMaterial(k: HumanKit, u: Uniforms): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({ map: k.tex.clothes, roughness: 0.86, metalness: 0 });
   m.onBeforeCompile = (sh) => {
@@ -983,13 +1092,17 @@ function clothMaterial(k: HumanKit, u: Uniforms): THREE.MeshStandardMaterial {
         '#include <map_fragment>',
         `{
   vec3 t = texture2D(map, vMapUv).rgb;
-  vec4 c = cloth[int(vSlot + 0.5)];
-  diffuseColor.rgb *= c.a > 0.5 ? c.rgb * t.r * 2.0 : pow(t, vec3(2.2));
+  int s = int(vSlot + 0.5);
+  vec4 c = cloth[s];
+  if (c.a > 0.5) {
+    c = cloth[min(s + int(t.g * 2.0 + 0.5), ${CLOTH_SLOTS - 1})];
+    diffuseColor.rgb *= c.rgb * t.r * 2.0;
+  } else diffuseColor.rgb *= pow(t, vec3(2.2));
 }`,
       );
     underDuvet(sh);
   };
-  m.customProgramCacheKey = () => 'people-cloth-2';
+  m.customProgramCacheKey = () => 'people-cloth-3';
   return m;
 }
 

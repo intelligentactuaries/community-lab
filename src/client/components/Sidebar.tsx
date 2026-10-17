@@ -276,12 +276,16 @@ export function ScenarioForm() {
       })}
       <div className="form-actions full">
         <button className="primary" disabled={!dirty} onClick={() => store.rebuild(draft)}>
-          Rebuild province
+          {st.params.plan ? 'Rebuild the world' : 'Rebuild province'}
         </button>
         <button className="ghost" onClick={() => setDraft({ ...DEFAULT_PARAMS })}>defaults</button>
         <button className="ghost" onClick={() => store.openDrawer('montecarlo')}>Monte Carlo…</button>
       </div>
-      <div className="muted small full">Changing the basis rebuilds the province from day 0 with the same seed so runs are comparable. The household count and baseline mix are Ebenezer's; the other settlements take their tier's profile. Basis hash: {st.sim.world.basisHash}.</div>
+      <div className="muted small full">
+        {st.params.plan
+          ? `Changing the basis rebuilds ${st.params.plan.name} from day 0 with the same seed so runs are comparable. ${st.params.plan.baseline ? 'The household count and baseline mix are its baseline settlement\'s; the other settlements take their tier\'s profile.' : 'Every settlement takes its tier\'s profile (the household count and baseline mix apply to a baseline settlement, set in the builder).'} Basis hash: ${st.sim.world.basisHash}.`
+          : `Changing the basis rebuilds the province from day 0 with the same seed so runs are comparable. The household count and baseline mix are Ebenezer's; the other settlements take their tier's profile. Basis hash: ${st.sim.world.basisHash}.`}
+      </div>
     </div>
   );
 }

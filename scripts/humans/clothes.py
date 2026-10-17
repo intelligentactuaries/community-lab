@@ -119,10 +119,11 @@ def hidden_triangles(body_faces, tri_of_face, deletes):
 STRIPED = {'male_casualsuit03', 'female_elegantsuit01'}
 
 
-def detail_map(tex_path, size, uvs_by_slot, original=False, striped=False):
-    """The texture's shading as brightness around 1 (stored x0.5), each slot region on its own: prints, logos and
-    piping (colour or brightness far from the region's own) painted out, fine stripes smoothed, nothing from outside
-    the region mixed in. original=True keeps the texture's colours instead (shoes)."""
+def detail_map(tex_path, size, uvs_by_slot, original=False, striped=False, sub=None):
+    """The texture's shading as brightness around 1 (stored x0.5 in red and blue), each slot region on its own:
+    prints, logos and piping (colour or brightness far from the region's own) painted out, fine stripes smoothed,
+    nothing from outside the region mixed in; green holds which of a garment's colours each texel takes (sub: 0, 1 or
+    2, stored as 0, 0.5, 1; nought when not given). original=True keeps the texture's colours instead (shoes)."""
     im = Image.open(tex_path).convert('RGB').resize((size, size), Image.LANCZOS)
     srgb = np.asarray(im, dtype=np.float64) / 255.0
     rgb = tx.srgb_to_lin(srgb)
@@ -158,6 +159,8 @@ def detail_map(tex_path, size, uvs_by_slot, original=False, striped=False):
         mean = clean[stat].mean()
         d = np.clip(clean / mean, 0.55, 1.45) * 0.5
         out[mask] = d[mask][:, None]
+    if not original:
+        out[..., 1] = 0.0 if sub is None else np.clip(sub, 0, 2) * 0.5
     return tx.dilate_colors(out, known, 8)
 
 
@@ -172,23 +175,168 @@ def uv_region(mesh, faces, size):
 
 
 def suit_slots(proxy, part):
-    """Colour slots within a garment by its texture: the suit's shirt and tie apart from the jacket."""
+    """Colour slots within a garment: the suit's jacket, shirt and tie (told apart texel by texel, see texel_slots);
+    every face takes the garment's first slot."""
     if proxy.name != 'male_elegantsuit01' or part != 'top':
         return None, ('main',)
-    im = np.asarray(Image.open(proxy.texture()).convert('RGB').resize((256, 256)), dtype=np.float64) / 255.0
-    m = proxy.mesh
+    return (lambda f: 0), ('main', 'shirt', 'tie')
 
-    def slot(f):
-        uv = np.mean([m.vt[t] for t in m.ft[f]], axis=0)
-        x = int(np.clip(uv[0] * 255, 0, 255))
-        y = int(np.clip((1 - uv[1]) * 255, 0, 255))
-        c = im[y, x]
-        # the tie: its own island (top middle of the layout)
-        if 0.33 < uv[0] < 0.48 and uv[1] > 0.86:
-            return 2
-        return 1 if c.mean() > 0.5 else 0
 
-    return slot, ('main', 'shirt', 'tie')
+def texel_slots(tex_path, size, region):
+    """The suit's texels told apart (within its region): 2 the tie (the blue of its cloth, its pale stripes closed
+    over), 1 the shirt (its collar, front and cuffs: pale and grey), 0 the jacket (dark)."""
+    im = Image.open(tex_path).convert('RGB').resize((size, size), Image.LANCZOS)
+    srgb = np.asarray(im, dtype=np.float64) / 255.0
+    L = srgb.mean(-1)
+    blue = (srgb[..., 2] - srgb[..., 0] > 0.07) & (srgb[..., 2] > 0.2) & region
+    # Close the tie's stripes into it (a blur and threshold), and keep it to where the blue is.
+    near = tx.blur(blue.astype(np.float64), 2.5 * size / 512) > 0.18
+    tie = near & region & (tx.blur(blue.astype(np.float64), 6.0 * size / 512) > 0.12)
+    shirt = region & ~tie & (L > 0.42)
+    out = np.zeros((size, size), dtype=np.int32)
+    out[shirt] = 1
+    out[tie] = 2
+    return out
+
+
+def body_triangles(b):
+    """The base mesh's body as triangles (vertex index triples), and their unit normals as modelled."""
+    g = b.groups['body']
+    tris = []
+    for f, x in enumerate(b.fg):
+        if x != g:
+            continue
+        vs = b.fv[f]
+        for k in range(1, len(vs) - 1):
+            tris.append((vs[0], vs[k], vs[k + 1]))
+    tris = np.array(tris)
+    n = np.cross(b.v[tris[:, 1]] - b.v[tris[:, 0]], b.v[tris[:, 2]] - b.v[tris[:, 0]])
+    n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12)
+    return tris, n
+
+
+def group_triangles(b, group):
+    g = b.groups[group]
+    tris = []
+    for f, x in enumerate(b.fg):
+        if x != g:
+            continue
+        vs = b.fv[f]
+        for k in range(1, len(vs) - 1):
+            tris.append((vs[0], vs[k], vs[k + 1]))
+    return np.array(tris)
+
+
+def boundary_loops(fv):
+    """The open edges of a mesh (faces as vertex lists) chained into loops (lists of vertices)."""
+    use = defaultdict(int)
+    for vs in fv:
+        for k in range(len(vs)):
+            a, c = vs[k], vs[(k + 1) % len(vs)]
+            use[(min(a, c), max(a, c))] += 1
+    nxt = defaultdict(list)
+    for (a, c), n in use.items():
+        if n == 1:
+            nxt[a].append(c)
+            nxt[c].append(a)
+    seen = set()
+    loops = []
+    for s in nxt:
+        if s in seen:
+            continue
+        loop = [s]
+        seen.add(s)
+        cur = s
+        while True:
+            step = [w for w in nxt[cur] if w not in seen]
+            if not step:
+                break
+            cur = step[0]
+            seen.add(cur)
+            loop.append(cur)
+        loops.append(loop)
+    return loops
+
+
+def lengthen(sub, b, drop, rows=4):
+    """A top made longer: its hem, and the rows of the garment above it, moved down the body (the hem by `drop`
+    decimetres, each row above by less), each as far off the skin as it lay, and bound to the tights helper again
+    where it now lies (as MakeHuman binds clothes)."""
+    pos = (b.v[sub.ref] * sub.w[:, :, None]).sum(1) + sub.off
+    fv = sub.mesh.fv
+    # The hem: the bottom of the open loop round the trunk lowest down (not a cuff: those lie out along the arms; and
+    # not the rest of that loop, which in a top open down the front runs on up to the collar).
+    loops = [l for l in boundary_loops(fv) if abs(np.mean(pos[l][:, 0])) < 1.0 and len(l) > 12]
+    low = min(loops, key=lambda l: np.min(pos[l][:, 1]))
+    bottom = np.min(pos[low][:, 1])
+    hem = [v for v in low if pos[v][1] < bottom + 0.6]
+    # Rows above it, by steps along the garment's edges.
+    adj = defaultdict(set)
+    for vs in fv:
+        for k in range(len(vs)):
+            adj[vs[k]].add(vs[(k + 1) % len(vs)])
+            adj[vs[(k + 1) % len(vs)]].add(vs[k])
+    row = {v: 0 for v in hem}
+    q = list(hem)
+    while q:
+        nq = []
+        for v in q:
+            for w in adj[v]:
+                if w not in row and row[v] + 1 < rows:
+                    row[w] = row[v] + 1
+                    nq.append(w)
+        q = nq
+    tris, tn = body_triangles(b)
+    cen = b.v[tris].mean(1)
+
+    def nearest(p):
+        """The nearest point on the body to p and that triangle's normal (from the triangles round about it)."""
+        near = np.nonzero(((cen - p) ** 2).sum(1) < 2.0 ** 2)[0]
+        t = tris[near]
+        q, _ = closest_on_triangles(p, b.v[t[:, 0]], b.v[t[:, 1]], b.v[t[:, 2]])
+        k = int(np.argmin(((q - p) ** 2).sum(1)))
+        return q[k], tn[near[k]]
+
+    moved = sorted(row)
+    new = []
+    for v in moved:
+        p = pos[v]
+        q0, n0 = nearest(p)
+        lift = max(float(np.dot(p - q0, n0)), 0.05)
+        target = p - np.array([0.0, drop * (1 - row[v] / rows), 0.0])
+        q1, n1 = nearest(target)
+        new.append(q1 + n1 * lift)
+    ref, w, off = auto_bind(np.array(new), b.v, group_triangles(b, 'helper-tights'))
+    for i, v in enumerate(moved):
+        sub.ref[v] = ref[i]
+        sub.w[v] = w[i]
+        sub.off[v] = off[i]
+    return len(moved)
+
+
+def ring_rows(b, group):
+    """The rings of a tube-shaped helper (the skirt), counted down from its top edge: {vertex: ring}."""
+    g = b.groups[group]
+    faces = [i for i, x in enumerate(b.fg) if x == g]
+    fv = [b.fv[f] for f in faces]
+    loops = boundary_loops(fv)
+    top = max(loops, key=lambda l: np.mean(b.v[l][:, 1]))
+    adj = defaultdict(set)
+    for vs in fv:
+        for k in range(len(vs)):
+            adj[vs[k]].add(vs[(k + 1) % len(vs)])
+            adj[vs[(k + 1) % len(vs)]].add(vs[k])
+    ring = {v: 0 for v in top}
+    q = list(top)
+    while q:
+        nq = []
+        for v in q:
+            for w in adj[v]:
+                if w not in ring:
+                    ring[w] = ring[v] + 1
+                    nq.append(w)
+        q = nq
+    return ring
 
 
 # ── Garments made here: the sari's pallu (the end of the sari, draped from the waist across the body over the left

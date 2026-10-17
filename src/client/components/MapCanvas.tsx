@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { alivePeople } from '../../sim/ctx';
 import { JOBS } from '../../sim/population';
 import { nightDarkness, calendarForDay } from '../../sim/time';
-import { CITIES, CITY, COMMUNITY, cityAt, communityAt, pointInRect } from '../../sim/world';
+import { CITIES, CITY, COMMUNITIES, COMMUNITY, cityAt, communityAt, pointInRect } from '../../sim/world';
 import { flyToRect, easeCamera, fitWorld, focusPoint, focusRect, toWorld, zoomAt, type Camera } from '../lib/camera';
 import { dialogueTick, aiStatus } from '../lib/dialogue';
 import { store, useStore } from '../lib/simStore';
@@ -14,6 +14,16 @@ import type { Scene3D } from '../render3d/scene3d';
 import { isDarkTheme, plotColor } from '../lib/householdColor';
 import { Bus, Church, Home, Hospital, Landmark, Plane, Stadium, Target, Tower, Trees } from './Icons';
 import { Legend } from './Legend';
+import { isProvince, wholeName } from '../lib/worldNames';
+
+/** The province's own city icons (a built world's are chosen by what each city is). */
+const CITY_ICON: Record<string, typeof Church> = { emmaus: Church, newhaven: Trees, ithemba: Bus, airport: Plane };
+
+/** The fly-to buttons for the shared centre's zones: the province's CBD, park and campus, or a built world's centre zones. */
+function centreZones(): string[] {
+  if (isProvince()) return ['cbd', 'precinct', 'campus'];
+  return COMMUNITIES.filter((c) => CITY[c.city]?.kind === 'centre').map((c) => c.id).slice(0, 4);
+}
 
 /** Who is singing a hymn line and who is speaking right now (the 3D faces move their mouths). */
 function voices(): { singers: Set<string>; speakers: Set<string> } {
@@ -378,7 +388,7 @@ export function MapCanvas() {
     if (com) {
       const c = COMMUNITY[com];
       const city = CITY[c.city];
-      return { title: c.name, sub: `${c.tier === 'civic' ? city.kind === 'centre' ? 'Unity Centre' : city.kind === 'airport' ? city.blurb : `${city.name}'s civic centre` : `${c.tier} · ${city.name}`}` };
+      return { title: c.name, sub: `${c.tier === 'civic' ? city.kind === 'centre' ? city.name : city.kind === 'airport' ? city.blurb : `${city.name}'s civic centre` : `${c.tier} · ${city.name}`}` };
     }
     const city = cityAt(wp.x, wp.y);
     return city ? { title: CITY[city].name, sub: CITY[city].blurb } : null;
@@ -549,9 +559,10 @@ export function MapCanvas() {
       <div className="hud">
         <div className="crumb">
           <button className={drill === 'province' ? 'on' : ''} onClick={() => { store.resetCamera(); store.bump(); }} title="Bird's-eye view of the whole province">
-            <Home size={12} /> Province
+            <Home size={12} /> {isProvince() ? 'Province' : world.meta.placeName}
           </button>
-          {crumbCity && (drill !== 'province' || houseName) && (
+          {/* A world of one city is its city: the first crumb already names it. */}
+          {crumbCity && (drill !== 'province' || houseName) && (isProvince() || CITIES.length > 1) && (
             <>
               <span className="sep">›</span>
               <button className={drill === 'city' ? 'on' : ''} onClick={() => { const c = CITY[crumbCity]; flyTo(c.x, c.y, c.w, c.h, 1.08); }} title={`Fit ${CITY[crumbCity].name}`}>
@@ -592,12 +603,12 @@ export function MapCanvas() {
         <div className="zoomctl">
           <button onClick={() => zoomAt(store.camera, st.viewport.w, st.viewport.h, st.viewport.w / 2, st.viewport.h / 2, 1.6)} title="Zoom in">+</button>
           <button onClick={() => zoomAt(store.camera, st.viewport.w, st.viewport.h, st.viewport.w / 2, st.viewport.h / 2, 1 / 1.6)} title="Zoom out">−</button>
-          <button onClick={() => { store.resetCamera(); store.bump(); }} title="Fit the province">⌂</button>
+          <button onClick={() => { store.resetCamera(); store.bump(); }} title={`Fit ${wholeName()}`}>⌂</button>
           <button className={st.view3d ? 'on' : ''} onClick={() => store.set('view3d', !st.view3d)} title={st.view3d ? 'Zooming in past the rooms turns the map into a 3D scene (click for the flat map only)' : 'The flat map at every zoom (click to let close zoom become 3D)'}>3D</button>
           <button className={st.followId ? 'on' : ''} onClick={() => { if (st.followId) { store.followId = null; store.bump(); } else if (sel?.kind === 'person') store.select(sel, { follow: true, focus: true }); }} title="Follow the selected person (F)"><Target size={13} /></button>
           <span className="divider" aria-hidden />
           {CITIES.filter((c) => c.kind === 'city' || c.kind === 'airport').map((c) => {
-            const Icon = c.id === 'emmaus' ? Church : c.id === 'newhaven' ? Trees : c.id === 'airport' ? Plane : Bus;
+            const Icon = CITY_ICON[c.id] ?? (c.kind === 'airport' ? Plane : c.religious ? Church : Trees);
             const here = drill !== 'province' && cityAt(st.camera.x, st.camera.y) === c.id;
             return (
               <button key={c.id} className={`fly ${here ? 'on' : ''}`} aria-label={`Fly to ${c.name}`} onClick={() => flyTo(c.x, c.y, c.w, c.h, 1.08)}>
@@ -607,9 +618,9 @@ export function MapCanvas() {
             );
           })}
           <span className="divider" aria-hidden />
-          {(['cbd', 'precinct', 'campus'] as const).map((id) => {
+          {centreZones().map((id) => {
             const c = COMMUNITY[id];
-            const Icon = id === 'cbd' ? Tower : id === 'precinct' ? Stadium : Hospital;
+            const Icon = id === 'cbd' ? Tower : id === 'precinct' ? Stadium : id === 'campus' ? Hospital : Tower;
             const here = drill !== 'province' && communityAt(st.camera.x, st.camera.y) === id;
             return (
               <button key={id} className={`fly ${here ? 'on' : ''}`} aria-label={`Fly to ${c.name}`} onClick={() => flyTo(c.x, c.y, c.w, c.h, 1.12)}>

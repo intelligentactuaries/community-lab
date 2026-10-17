@@ -29,6 +29,7 @@ import {
 import { alivePeople } from './ctx';
 import { Simulation } from './engine';
 import { assumptionsHash, type ScenarioParams } from './params';
+import type { WorldPlan } from './plan/types';
 import { applyPatch } from './patch';
 import { experienceE0 } from './stats';
 import { DAYS_PER_YEAR } from './time';
@@ -105,12 +106,17 @@ export function indicators(sim: Simulation): Record<string, number> {
   };
 }
 
+/** What every arm of an experiment shares: the base, its basis and shocks, and the world (a plan made in the Community Builder; none for the province). */
+export type ArmSpec = Pick<ExperimentSpec, 'base' | 'baseMortality' | 'baseShocks'> & { world?: WorldPlan | null };
+
 /** The parameters of one arm on one seed: the base and its basis and shocks, then the arm's changes, its own basis
  *  (in place of the base's) and its shocks (after the base's). */
-export function armParams(spec: Pick<ExperimentSpec, 'base' | 'baseMortality' | 'baseShocks'>, arm: ExperimentArm | null, seed: string): { params: Partial<ScenarioParams>; rejected: string[] } {
+export function armParams(spec: ArmSpec, arm: ExperimentArm | null, seed: string): { params: Partial<ScenarioParams>; rejected: string[] } {
   const base = applyPatch({}, spec.base);
   const withArm = arm ? applyPatch(base.params, arm.params) : base;
   const params: Partial<ScenarioParams> = { ...withArm.params, seed, journalRetentionMonths: 0 };
+  // Every arm runs in the world the experiment was set in (the built-in province without one).
+  if (spec.world) params.plan = spec.world;
   const mortality = arm?.mortality ?? spec.baseMortality;
   if (mortality) params.mortalityOverride = mortality;
   const shocks = [...(spec.baseShocks ?? []), ...(arm?.shocks ?? [])];
@@ -134,12 +140,12 @@ export interface ArmRun {
 
 /** Run one arm on one seed for the experiment's years (time-lapse; the same pipeline as the animated province).
  *  `onDay` runs after every simulated day — the server's workers check for a cancel there. */
-export function runArm(spec: Pick<ExperimentSpec, 'base' | 'baseMortality' | 'baseShocks' | 'years'>, arm: ExperimentArm | null, seed: string, onDay?: (day: number) => void): ArmRun {
+export function runArm(spec: ArmSpec & Pick<ExperimentSpec, 'years'>, arm: ExperimentArm | null, seed: string, onDay?: (day: number) => void): ArmRun {
   const t0 = performance.now();
   const { params } = armParams(spec, arm, seed);
   const sim = new Simulation(params);
   sim.runDays(Math.round(spec.years * DAYS_PER_YEAR), onDay);
-  return { arm: arm?.id ?? 'baseline', seed, metrics: indicators(sim), ms: Math.round(performance.now() - t0), basisHash: sim.world.basisHash, assumptionsHash: assumptionsHash(sim.params) };
+  return { arm: arm?.id ?? 'baseline', seed, metrics: indicators(sim), ms: Math.round(performance.now() - t0), basisHash: sim.world.basisHash, assumptionsHash: assumptionsHash(sim.params, sim.atlas.hash) };
 }
 
 /** Distributions per arm and paired effects against the baseline, from the runs of every arm on every seed. */

@@ -12,6 +12,10 @@ import { experimentExport } from '../shared/exports';
 import { TEMPLATES, TEMPLATE_BY_ID } from '../shared/templates';
 import { cacheClear, cacheGet, cachePut, getExperiment, getExport, listBatches, listExperiments } from './db';
 import { APP_VERSION, type Job, cancelJob, getJob, listJobs, startBatch, startExperiment, startPooledExport } from './jobs';
+import { deleteWorld, getWorld, listWorlds, putWorld } from './worlds';
+import { readWorld } from '../sim/plan/sce';
+import { validatePlan } from '../sim/plan/validate';
+import type { WorldPlan } from '../sim/plan/types';
 import { router } from './llm/router';
 import type { CloudProvider, Message, ProviderPrefs } from './llm/types';
 import { pool } from './pool';
@@ -119,7 +123,16 @@ route('POST', '/api/batch', async (req) => {
   const job = startBatch(body.params ?? {}, years, n, () => {});
   return json({ id: job.id, status: 'running', total: n });
 });
-route('GET', '/api/batch', () => json({ recent: listBatches().map((b) => ({ id: b.id, created_at: b.created_at, params: b.params })) }));
+route('GET', '/api/batch', () =>
+  json({
+    recent: listBatches().map((b) => {
+      // A batch on a built world carries the whole plan; the list names the world instead.
+      const saved = (b.params ?? {}) as { params?: Partial<ScenarioParams>; years?: number; seeds?: number };
+      const { plan, ...rest } = saved.params ?? {};
+      return { id: b.id, created_at: b.created_at, params: { ...saved, params: { ...rest, ...(plan ? { world: plan.name } : {}) } } };
+    }),
+  }),
+);
 route('GET', '/api/batch/:id', (_req, _url, p) => {
   const j = getJob(p.id);
   if (!j) {
@@ -148,10 +161,28 @@ route('GET', '/api/templates/:id', (_req, url, p) => {
   return json({ ...t.build(years), focus: t.focus, years });
 });
 
+/**
+ * A world sent with an experiment or a pooled export: the lab's own client sends the one on screen beside the
+ * exchange's spec (whose parameter patches carry no plans). Checked as the builder checks a world before it runs.
+ */
+function worldFrom(x: unknown): { ok: true; world: WorldPlan | null } | { ok: false; error: string } {
+  if (x === undefined || x === null) return { ok: true, world: null };
+  try {
+    const { plan } = readWorld(JSON.stringify(x));
+    const errors = validatePlan(plan).filter((i) => i.level === 'error');
+    return errors.length ? { ok: false, error: `the world cannot run yet: ${errors[0].text}` } : { ok: true, world: plan };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'not a world' };
+  }
+}
+
 route('POST', '/api/experiments', async (req) => {
-  const parsed = parseExperimentSpec(await req.json());
+  const { world, ...body } = (await req.json()) as Record<string, unknown>;
+  const w = worldFrom(world);
+  if (!w.ok) return json({ error: 'invalid world', details: [w.error] }, { status: 400 });
+  const parsed = parseExperimentSpec(body);
   if (!parsed.ok) return json({ error: 'invalid experiment', details: parsed.errors }, { status: 400 });
-  return json(jobView(startExperiment(parsed.value)));
+  return json(jobView(startExperiment(parsed.value, w.world)));
 });
 route('GET', '/api/experiments', () => json({ running: listJobs('experiment').filter((j) => j.status === 'running').map(jobView), saved: listExperiments() }));
 route('GET', '/api/experiments/:id', (_req, _url, p) => {
@@ -169,7 +200,9 @@ route('GET', '/api/experiments/:id/export', (_req, _url, p) => {
 });
 
 route('POST', '/api/exports', async (req) => {
-  const body = (await req.json()) as { kind?: string; base?: ParamPatch; mortality?: unknown; shocks?: unknown; seeds?: number; years?: number; ageWidth?: number; group?: Grouping };
+  const body = (await req.json()) as { kind?: string; base?: ParamPatch; mortality?: unknown; shocks?: unknown; world?: unknown; seeds?: number; years?: number; ageWidth?: number; group?: Grouping };
+  const w = worldFrom(body.world);
+  if (!w.ok) return json({ error: 'invalid world', details: [w.error] }, { status: 400 });
   if (body.kind !== 'experience') return json({ error: 'kind must be experience (the other exports come from the province on screen)' }, { status: 400 });
   const seeds = Math.round(Number(body.seeds ?? 16));
   const years = Math.round(Number(body.years ?? 10));
@@ -182,7 +215,7 @@ route('POST', '/api/exports', async (req) => {
   const check = outside ? parseDirective({ schema: EXCHANGE_SCHEMA, kind: 'community.directive', id: 'check', label: 'check', from: { app: 'community-lab', appVersion: APP_VERSION, createdAt: '' }, params: body.base, mortality: body.mortality, shocks: body.shocks }) : null;
   if (check && !check.ok) return json({ error: 'invalid base', details: check.errors }, { status: 400 });
   const d = check?.ok ? check.value : null;
-  return json(jobView(startPooledExport({ base: d?.params, mortality: d?.mortality, shocks: d?.shocks, seeds, years, ageWidth, group })));
+  return json(jobView(startPooledExport({ base: d?.params, mortality: d?.mortality, shocks: d?.shocks, world: w.world, seeds, years, ageWidth, group })));
 });
 route('GET', '/api/exports/:id', (_req, _url, p) => {
   const j = getJob(p.id);
@@ -191,6 +224,26 @@ route('GET', '/api/exports/:id', (_req, _url, p) => {
   return saved ? json({ id: p.id, kind: 'export', status: 'done', done: 0, total: 0, warnings: [], export: saved }) : json({ error: 'not found' }, { status: 404 });
 });
 route('DELETE', '/api/exports/:id', (_req, _url, p) => json({ cancelled: cancelJob(p.id) }));
+
+// ── Worlds made in the Community Builder: .sce files in data/worlds/ ──
+const PLAN_ID = /^[A-Za-z0-9_-]{1,80}$/;
+route('GET', '/api/plans', () => json({ plans: listWorlds() }));
+route('GET', '/api/plans/:id', (_req, _url, p) => {
+  const plan = getWorld(p.id);
+  return plan ? json(plan) : json({ error: 'not found' }, { status: 404 });
+});
+route('PUT', '/api/plans/:id', async (req, _url, p) => {
+  if (!PLAN_ID.test(p.id)) return json({ error: 'bad id' }, { status: 400 });
+  let plan: WorldPlan;
+  try {
+    plan = readWorld(await req.text()).plan;
+  } catch (e) {
+    return json({ error: e instanceof Error ? e.message : 'not a world' }, { status: 400 });
+  }
+  if (plan.id !== p.id) return json({ error: "the world's id does not match the address" }, { status: 400 });
+  return json(putWorld({ ...plan, name: String(plan.name ?? p.id).slice(0, 120) }));
+});
+route('DELETE', '/api/plans/:id', (_req, _url, p) => json({ deleted: deleteWorld(p.id) }));
 
 // ── The workspace the workbench edits (a folder on this machine) ──
 for (const r of workspaceRoutes) route(r.method, r.path, r.handler);

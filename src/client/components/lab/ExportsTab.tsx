@@ -15,7 +15,7 @@ import { experienceExport, macroExport, modelPointsExport, personYearsExport, pr
 import { experienceCells, lastCountedDay, macroRows, modelPointRows, personYearRows, trueBasis, type Grouping } from '../../../sim/experience';
 import { MORTALITY_PRESETS, buildQxTable, presetById } from '../../../sim/mortality';
 import { assumptionsHash } from '../../../sim/params';
-import { changedFromDefaults } from '../../../sim/patch';
+import { provenanceChanges } from '../../../sim/patch';
 import { shockLabel } from '../../../sim/shocks';
 import { calendarForDay } from '../../../sim/time';
 import { Mini, Tbl, Viz } from '../../charts/helpers';
@@ -28,14 +28,14 @@ import { saveExportToWorkspace, useWorkspace } from '../../workbench/workspace';
 
 function provenance() {
   const sim = store.sim;
-  const changed = changedFromDefaults(sim.params);
+  const changed = provenanceChanges(sim.params);
   if (sim.params.mortalityOverride) changed.mortalityOverride = { label: sim.params.mortalityOverride.label, source: sim.params.mortalityOverride.source };
   if (sim.params.shocks) changed.shocks = sim.params.shocks.map(shockLabel);
   return provenanceFor({
     span: { from: calendarForDay(sim.ctx.startMs, 0).isoDate, to: calendarForDay(sim.ctx.startMs, lastCountedDay(sim.world)).isoDate },
     seed: sim.params.seed,
     basisHash: sim.world.basisHash,
-    assumptionsHash: assumptionsHash(sim.params),
+    assumptionsHash: assumptionsHash(sim.params, sim.atlas.hash),
     scenario: `${sim.params.regionName} Province, as on screen`,
     changed,
   });
@@ -111,7 +111,7 @@ export function ExportsTab() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const years = (lastCountedDay(w) / 365.25).toFixed(1);
   const runPool = async () => {
-    const r = await fetch('/api/exports', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'experience', base: provinceBase(), mortality: store.params.mortalityOverride, shocks: store.params.shocks, seeds: pool.seeds, years: pool.years, ageWidth, group }) });
+    const r = await fetch('/api/exports', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ kind: 'experience', base: provinceBase(), mortality: store.params.mortalityOverride, shocks: store.params.shocks, world: store.params.plan ?? undefined, seeds: pool.seeds, years: pool.years, ageWidth, group }) });
     const j = await r.json();
     if (!r.ok) {
       setJob({ id: '', status: 'error', done: 0, total: 0, error: j.error });

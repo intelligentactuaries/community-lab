@@ -9,7 +9,7 @@ import { ASFR_SHAPE_SA, asfrAt, asfrBandFor } from './fertility';
 import { AGE_BANDS, bandFor, dailyHazard, improvedQx, lifeExpectancy, qxFor } from './mortality';
 import { DAYS_PER_YEAR } from './time';
 import type { AgeBandExposure, Person, SimStats, StatsSnapshot, World } from './types';
-import { CITIES, COMMUNITIES, cityOf } from './world';
+import { CITIES, COMMUNITIES, cityOf, defaultCommunity } from './world';
 
 export function initStats(): SimStats {
   return {
@@ -200,7 +200,7 @@ export function monthlySnapshot(ctx: Ctx): StatsSnapshot {
   const byCommunity: StatsSnapshot['byCommunity'] = Object.fromEntries(COMMUNITIES.map((c) => [c.id, blank()]));
   const byCity: StatsSnapshot['byCity'] = Object.fromEntries(CITIES.map((c) => [c.id, blank()]));
   for (const h of hhs) {
-    const com = world.buildings[h.houseId]?.community ?? 'ebenezer';
+    const com = world.buildings[h.houseId]?.community ?? defaultCommunity();
     const members = h.memberIds.filter((id) => world.people[id]?.alive && !world.people[id]?.emigrated).length;
     for (const c of [byCommunity[com], byCity[cityOf(com)]]) {
       c.households++;

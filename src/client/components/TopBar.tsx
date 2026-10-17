@@ -3,7 +3,9 @@ import { MONTHS, WEEKDAYS, fmtClock } from '../../sim/time';
 import { APP_VERSION } from '../../shared/exports';
 import type { ProvidersInfo } from '../lib/api';
 import { store, useStore } from '../lib/simStore';
-import { Chevron, Help, Pause, Play, Rewind, Settings, Sparkle, StepFwd, Weather } from './Icons';
+import { builder } from '../builder/builderStore';
+import { wholeName } from '../lib/worldNames';
+import { Chevron, Hammer, Help, Pause, Play, Rewind, Settings, Sparkle, StepFwd, Weather } from './Icons';
 
 export function TopBar({ info, aiBusy }: { info: ProvidersInfo | null; aiBusy: boolean }) {
   const st = useStore();
@@ -21,6 +23,7 @@ export function TopBar({ info, aiBusy }: { info: ProvidersInfo | null; aiBusy: b
           C<sub>{APP_VERSION.split('.').slice(0, 2).join('.')}</sub>
         </span>
         <span className="name">Community Lab</span>
+        <span className="by">· {w.meta.placeName}</span>
         <div className="viewseg" role="tablist" aria-label="View">
           <button type="button" role="tab" aria-selected={!bench} className={!bench ? 'on' : ''} onClick={() => store.setView('province')} title="The province (Ctrl+1)">
             Province
@@ -40,12 +43,12 @@ export function TopBar({ info, aiBusy }: { info: ProvidersInfo | null; aiBusy: b
         <span className="date">{WEEKDAYS[cal.weekday].slice(0, 3)} {cal.day} {MONTHS[cal.month - 1]} {cal.year}</span>
         <span className="time">{st.jumping ? '…' : fmtClock(w.minuteOfDay)}</span>
         <span className="wx row" title={`${wx.tempMin}–${wx.tempMax}°C · ${wx.rainMm} mm · wind ${wx.windKmh} km/h`}>
-          <Weather cond={wx.condition} /> {wx.tempMax}°C {wx.condition}
+          <Weather cond={wx.condition} /> {wx.tempMax}°C <span className="wx-cond">{wx.condition}</span>
         </span>
         {w.weatherOverride && <span className="pill warn" title="Weather forced from the scene controls">forced</span>}
-        <span className="pill">{wx.season}</span>
+        <span className="pill season">{wx.season}</span>
         {w.holiday && <span className="pill">{w.holiday}</span>}
-        <span className="pill" title="Simulated years elapsed">yr {(w.day / 365.25).toFixed(1)}</span>
+        <span className="pill years" title="Simulated years elapsed">yr {(w.day / 365.25).toFixed(1)}</span>
         <Chevron size={12} open />
       </button>
       <div className="timectl">
@@ -81,20 +84,24 @@ export function TopBar({ info, aiBusy }: { info: ProvidersInfo | null; aiBusy: b
         </div>
       </div>
       <div className="status-cluster">
+        <button className="ghost b-enter" onClick={() => builder.enter()} title="Build or change a community: place homes, churches, schools, shops, roads and whole settlements, then run it">
+          <Hammer size={13} /> <span className="b-enter-label">Build</span>
+        </button>
         <span
           className={`chip ${st.drawerTab === 'exports' && !bench ? 'on' : ''}`}
           onClick={() => {
             store.setView('province');
             store.openDrawer(st.drawerTab === 'exports' && !bench ? null : 'exports');
           }}
-          title={`Export the province's data with its provenance (experience, the person-year panel, the burial society's book, the economy), or live it on a mortality table of your own${outside ? `. Living on ${outside}` : ''}`}
+          title={`Export ${wholeName()}'s data with its provenance (experience, the person-year panel, the burial society's book, the economy), or live it on a mortality table of your own${outside ? `. Living on ${outside}` : ''}`}
         >
           <span className={`led ${outside ? 'basis' : ''}`} />
           Exports{outside ? ' · basis' : ''}
         </span>
         <span className="chip" onClick={() => store.set('settingsOpen', true)} title={info ? (eff ? `${eff.provider} · ${eff.model}` : 'no AI provider — click to configure') : 'connecting to the API…'}>
           <span className={`led ${aiBusy ? 'busy' : eff ? 'live' : info ? 'down' : ''}`} />
-          <Sparkle size={12} /> {eff ? eff.model : info ? 'no model' : '…'} · {st.aiMode}
+          <Sparkle size={12} /> <span className="model">{eff ? eff.model : info ? 'no model' : '…'}</span>
+          <span className="mode"> · {st.aiMode}</span>
         </span>
         <button className="icon" title="Settings" onClick={() => store.set('settingsOpen', true)}>
           <Settings />

@@ -1,7 +1,8 @@
 // bun:sqlite — a cache of generated dialogue keyed by prompt hash + salt, and
 // the lab's kept runs (batches, experiments, pooled exports). Lives under
 // ./data, or COMMUNITY_DATA_DIR (the desktop IDE points it at the user's data
-// folder).
+// folder); the worlds made in the Community Builder are .sce files beside it
+// (worlds.ts).
 import { Database } from 'bun:sqlite';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';

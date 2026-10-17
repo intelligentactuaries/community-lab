@@ -9,8 +9,9 @@ import { fillVacancies } from './economy';
 import { injure } from './health';
 import { ambulanceTo, dispatchVehicle, goNow, roadPolyline } from './movement';
 import { cityOfPerson, communityOfPerson, refreshRoles } from './population';
-import type { Activity, Building, CourtCase, Incident, IncidentKind, Intruder, IntruderKind, Person } from './types';
-import { COMMUNITY, EXITS, POLICE_IDS, cityAt, cityOf, landmark, landmarksOfKind, nearestExit, roomByKind } from './world';
+import type { Activity, Building, CourtCase, Incident, IncidentKind, Intruder, IntruderKind, Person, World } from './types';
+import { activeAtlas } from './atlas';
+import { BUS_HUB, COMMUNITY, EXITS, POLICE_IDS, cityAt, cityOf, defaultCommunity, landmark, landmarksOfKind, nearestExit, roomByKind } from './world';
 
 const INTRUDER_WEIGHTS: Array<[IntruderKind, number]> = [
   ['burglar', 0.28],
@@ -37,8 +38,8 @@ const INTRUDER_LABEL: Record<IntruderKind, string> = {
 };
 
 /** The station that answers a call from a point: the nearest one (the provincial headquarters included). */
-export function stationFor(ctx: Ctx, x: number, y: number): string {
-  let best = POLICE_IDS[0];
+export function stationFor(ctx: Ctx, x: number, y: number): string | null {
+  let best: string | null = POLICE_IDS[0] ?? null;
   let bd = Infinity;
   for (const id of POLICE_IDS) {
     const b = ctx.world.buildings[id];
@@ -61,7 +62,7 @@ function policeOnDuty(ctx: Ctx, near?: { x: number; y: number }): Person[] {
   };
   if (near) {
     const station = stationFor(ctx, near.x, near.y);
-    const own = (world.roles.policeByStation[station] ?? []).filter(fit).map((id) => world.people[id]);
+    const own = (station ? world.roles.policeByStation[station] ?? [] : []).filter(fit).map((id) => world.people[id]);
     if (own.length) return own;
   }
   return world.roles.policeIds.filter(fit).map((id) => world.people[id]);
@@ -171,7 +172,7 @@ export function concludeIncident(ctx: Ctx, inc: Incident, arrested: boolean, acc
     world.stats.arrests++;
     const who = accused ? fullName(accused) : intruder ? intruder.name : 'the suspect';
     inc.outcome = `${who} arrested`;
-    ctx.emit({ kind: 'arrest', severity: 'alert', text: `Police arrested ${who} (${inc.kind}).`, personIds: accused ? [accused.id] : [], buildingId: stationFor(ctx, inc.x, inc.y) });
+    ctx.emit({ kind: 'arrest', severity: 'alert', text: `Police arrested ${who} (${inc.kind}).`, personIds: accused ? [accused.id] : [], buildingId: stationFor(ctx, inc.x, inc.y) ?? undefined });
     if (accused) {
       accused.criminalRecord++;
       accused.history.push({ day: world.day, kind: 'arrest', text: `Arrested for ${inc.kind}.` });
@@ -207,13 +208,13 @@ function chargeFor(kind: IncidentKind): string {
   }
 }
 
-/** The magistrate's court a case goes to: the accused's own city's, else the one nearest the scene. */
+/** The magistrate's court a case goes to: the accused's own city's, else the one nearest the scene ('' where the world has none: the regional court, out of town). */
 function courtFor(ctx: Ctx, inc: Incident, accused: Person | null): string {
   const world = ctx.world;
-  if (accused) return landmark(communityOfPerson(world, accused), 'court');
+  if (accused) return landmark(communityOfPerson(world, accused), 'court') ?? '';
   const city = cityAt(inc.x, inc.y);
-  const com = city ? COMMUNITY[world.buildings[inc.buildingId ?? '']?.community ?? 'ebenezer'] : null;
-  return landmark(com?.city === city ? com.id : (inc.buildingId ? world.buildings[inc.buildingId]?.community : null) ?? 'ebenezer', 'court');
+  const com = city ? COMMUNITY[world.buildings[inc.buildingId ?? '']?.community ?? defaultCommunity()] : null;
+  return landmark(com?.city === city ? com.id : (inc.buildingId ? world.buildings[inc.buildingId]?.community : null) ?? defaultCommunity(), 'court') ?? '';
 }
 
 export function fileCase(ctx: Ctx, inc: Incident, accused: Person | null, intruder?: Intruder): CourtCase {
@@ -237,7 +238,7 @@ export function fileCase(ctx: Ctx, inc: Incident, accused: Person | null, intrud
   world.courtCases[id] = c;
   inc.courtCaseId = id;
   world.stats.courtCases++;
-  ctx.emit({ kind: 'court', severity: 'info', text: `Case opened: ${c.accusedName} charged with ${c.charge}; hearing at ${world.buildings[c.courtId]?.name ?? 'the court'} in ${hearing - world.day} days.`, personIds: accused ? [accused.id] : [], buildingId: c.courtId });
+  ctx.emit({ kind: 'court', severity: 'info', text: `Case opened: ${c.accusedName} charged with ${c.charge}; hearing at ${world.buildings[c.courtId]?.name ?? 'the regional court'} in ${hearing - world.day} days.`, personIds: accused ? [accused.id] : [], buildingId: c.courtId || undefined });
   return c;
 }
 
@@ -280,7 +281,16 @@ function targetFor(ctx: Ctx, kind: IntruderKind): Building {
   const world = ctx.world;
   const rng = ctx.rng.stream('security');
   const houses = Object.values(world.buildings).filter((b) => b.kind === 'house' && b.householdId);
-  const of = (k: Parameters<typeof landmarksOfKind>[0]) => world.buildings[rng.pick(landmarksOfKind(k))];
+  const of = (k: Parameters<typeof landmarksOfKind>[0]) => world.buildings[rng.pick(landmarksOfKind(k))] as Building | undefined;
+  const V = activeAtlas().venues;
+  const venue = (id: string | null) => (id ? world.buildings[id] : undefined);
+  // The same draws as ever where every place exists; a world without one picks among the rest.
+  const pickOf = (cands: Array<Building | undefined>): Building => {
+    if (cands.every(Boolean)) return rng.pick(cands as Building[]);
+    const have = cands.filter((b): b is Building => !!b);
+    return have.length ? rng.pick(have) : rng.pick(houses);
+  };
+  const orHouse = (b: Building | undefined) => b ?? rng.pick(houses);
   switch (kind) {
     case 'burglar':
     case 'con-artist':
@@ -293,17 +303,17 @@ function targetFor(ctx: Ctx, kind: IntruderKind): Building {
       return rng.pick(houses);
     }
     case 'pickpocket':
-      return rng.bernoulli(0.35) ? world.buildings.mall : of('shop');
+      return orHouse(rng.bernoulli(0.35) ? venue(V.mall) ?? of('shop') : of('shop'));
     case 'troublemaker':
-      return rng.pick([of('shop'), of('park'), world.buildings.stadium, world.buildings.terminus, rng.pick(houses)]);
+      return pickOf([of('shop'), of('park'), venue(V.stadium), venue(BUS_HUB), rng.pick(houses)]);
     case 'stray-dog':
-      return rng.pick([of('park'), of('school'), rng.pick(houses)]);
+      return pickOf([of('park'), of('school'), rng.pick(houses)]);
     case 'snake':
-      return rng.pick([of('farm'), of('park'), world.buildings.grandpark, rng.pick(houses)]);
+      return pickOf([of('farm'), of('park'), venue(V.grandpark), rng.pick(houses)]);
     case 'stock-thief':
-      return of('farm');
+      return orHouse(of('farm'));
     case 'wildfire':
-      return rng.bernoulli(0.7) ? of('farm') : rng.bernoulli(0.5) ? of('park') : world.buildings.grandpark;
+      return orHouse(rng.bernoulli(0.7) ? of('farm') : rng.bernoulli(0.5) ? of('park') : venue(V.grandpark) ?? of('park'));
   }
 }
 
@@ -474,7 +484,7 @@ export function intruderMinute(ctx: Ctx): void {
       it.minutesLeft--;
       if (it.kind === 'stray-dog' && rng.bernoulli(0.2)) {
         // Roams its own settlement's streets.
-        const c = COMMUNITY[target?.community ?? 'ebenezer'];
+        const c = COMMUNITY[target?.community ?? defaultCommunity()];
         it.x = clamp(it.x + rng.range(-25, 25), c.x + 5, c.x + c.w - 5);
         it.y = clamp(it.y + rng.range(-25, 25), c.y + 5, c.y + c.h - 5);
       }
@@ -608,11 +618,12 @@ function onDetected(ctx: Ctx, it: Intruder, spotter: Person, target: Building | 
     if (arrested) {
       it.state = 'caught';
       it.minutesLeft = responseMin + 40;
-      const station = world.buildings[stationFor(ctx, it.x, it.y)];
+      const sid = stationFor(ctx, it.x, it.y);
+      const station = sid ? world.buildings[sid] : null;
       const cells = roomByKind(station, 'cell');
       const cell = cells?.spots[0];
       it.path = [];
-      setTimeoutMinute(it, cell ? { x: cell.x, y: cell.y } : { x: station.x + 10, y: station.y + 10 }, responseMin);
+      setTimeoutMinute(it, cell ? { x: cell.x, y: cell.y } : station ? { x: station.x + 10, y: station.y + 10 } : { x: it.x, y: it.y }, responseMin);
     } else {
       it.state = 'fleeing';
       it.path = [nearestExitPoint(it.x, it.y)];
@@ -749,16 +760,18 @@ export function courtDayStep(ctx: Ctx): void {
       c.hearingDay = world.day + 1;
       continue;
     }
-    const mid = world.roles.magistrateByCourt[c.courtId] ?? world.roles.magistrateId;
+    // A world without a court of its own sends its cases to the regional court, out of town.
+    const regional = !world.buildings[c.courtId];
+    const mid = regional ? null : world.roles.magistrateByCourt[c.courtId] ?? world.roles.magistrateId;
     const magistrate = mid ? world.people[mid] : null;
-    if (!magistrate || magistrate.away) {
+    if (!regional && (!magistrate || magistrate.away)) {
       c.hearingDay = world.day + 7;
       continue;
     }
     const accused = world.people[c.accusedId] ?? null;
     const inc = world.incidents[c.incidentId];
     const caughtAtScene = inc?.handledBy === 'police';
-    const fairness = 0.5 + 0.4 * (magistrate.big5.C - 0.5);
+    const fairness = 0.5 + 0.4 * ((magistrate?.big5.C ?? 0.5) - 0.5);
     const pGuilty = clamp(0.55 + (caughtAtScene ? 0.25 : 0) + 0.1 * (fairness - 0.5), 0.2, 0.95);
     const guilty = rng.bernoulli(pGuilty);
     c.verdict = guilty ? 'guilty' : rng.bernoulli(0.5) ? 'not-guilty' : 'dismissed';
@@ -788,7 +801,7 @@ export function courtDayStep(ctx: Ctx): void {
       }
       text = `Court: ${c.accusedName} found guilty of ${c.charge} — ${c.sentence}.`;
     } else text = `Court: the case against ${c.accusedName} (${c.charge}) was ${c.verdict === 'dismissed' ? 'dismissed' : 'dismissed after a not-guilty verdict'}.`;
-    ctx.emit({ kind: 'court', severity: guilty ? 'alert' : 'info', text, personIds: accused ? [accused.id] : [], buildingId: c.courtId });
+    ctx.emit({ kind: 'court', severity: guilty ? 'alert' : 'info', text, personIds: accused ? [accused.id] : [], buildingId: c.courtId || undefined });
     if (accused) accused.history.push({ day: world.day, kind: 'court', text });
     world.todayHearings.push(c.id);
   }
@@ -843,11 +856,14 @@ export function overridePlan(p: Person, a: Activity): void {
 
 // ─── Road accidents ────────────────────────────────────────────────────────
 
-const lastOdo = new Map<string, number>();
+/** Each run's odometer readings at the last day step (vehicle ids repeat from one run to the next). */
+const lastOdoByWorld = new WeakMap<World, Map<string, number>>();
 
 export function roadAccidentDayStep(ctx: Ctx): void {
   const world = ctx.world;
   const rng = ctx.rng.stream('security');
+  let lastOdo = lastOdoByWorld.get(world);
+  if (!lastOdo) lastOdoByWorld.set(world, (lastOdo = new Map()));
   for (const vid in world.vehicles) {
     const v = world.vehicles[vid];
     if (!v.householdId) continue;

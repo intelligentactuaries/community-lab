@@ -325,9 +325,10 @@ export function healthDayStep(ctx: Ctx): void {
   for (const p of alivePeople(world)) {
     if (p.away) continue;
     const H = p.health;
+    // A world without a clinic nurses its sick at home, with whatever care can be had there.
     const clinicId = landmark(communityOfPerson(world, p), 'clinic');
-    const clinicStaff = staff.get(clinicId) ?? { doctor: false, nurse: false };
-    const care = careAt(clinicId);
+    const clinicStaff = (clinicId && staff.get(clinicId)) || { doctor: false, nurse: false };
+    const care = clinicId ? careAt(clinicId) : ctx.params.careQuality * 0.25;
     // ── Progress active illnesses ──
     for (const ill of [...H.illnesses]) {
       const daysIn = world.day - ill.onsetDay;
@@ -348,8 +349,8 @@ export function healthDayStep(ctx: Ctx): void {
         // the rest to the city clinic's ward, or on to the hospital when the
         // ward is full. Nowhere with a bed, and they are nursed at home.
         const referral = REFERRED.has(ill.kind) || ill.severity >= 0.8 || (ill.kind === 'injury' && ill.severity >= 0.6);
-        const hospitalFree = (inWard[CENTRAL_HOSPITAL] ?? 0) < HOSPITAL_BEDS;
-        const clinicFree = (inWard[clinicId] ?? 0) < bedsAt(clinicId);
+        const hospitalFree = !!CENTRAL_HOSPITAL && (inWard[CENTRAL_HOSPITAL] ?? 0) < HOSPITAL_BEDS;
+        const clinicFree = !!clinicId && (inWard[clinicId] ?? 0) < bedsAt(clinicId);
         const to = referral && hospitalFree ? CENTRAL_HOSPITAL : clinicFree ? clinicId : hospitalFree ? CENTRAL_HOSPITAL : null;
         if (to) {
           ill.hospitalised = true;
@@ -362,9 +363,9 @@ export function healthDayStep(ctx: Ctx): void {
           if (to === CENTRAL_HOSPITAL) {
             // Surgeons and specialists: the case-fatality falls further than a clinic ward manages.
             world.stats.surgeries++;
-            ill.dailyFatality *= 1 - 0.5 * careAt(CENTRAL_HOSPITAL);
+            ill.dailyFatality *= 1 - 0.5 * careAt(to);
             const theatre = REFERRED.has(ill.kind) || ill.kind === 'injury';
-            ctx.emit({ kind: 'hospital', severity: 'alert', text: `${fullName(p)} was referred to ${world.buildings[CENTRAL_HOSPITAL]?.name ?? 'the central hospital'} for ${theatre ? 'surgery' : 'specialist care'} (${ill.name}).`, personIds: [p.id], buildingId: CENTRAL_HOSPITAL });
+            ctx.emit({ kind: 'hospital', severity: 'alert', text: `${fullName(p)} was referred to ${world.buildings[to]?.name ?? 'the central hospital'} for ${theatre ? 'surgery' : 'specialist care'} (${ill.name}).`, personIds: [p.id], buildingId: to });
             p.history.push({ day: world.day, kind: 'hospital', text: `Referred to the central hospital for ${theatre ? 'surgery' : 'specialist care'}: ${ill.name}.` });
           } else {
             ctx.emit({ kind: 'hospital', severity: 'alert', text: `${fullName(p)} admitted to the ${world.buildings[to]?.name ?? 'clinic'} ward (${ill.name}).`, personIds: [p.id], buildingId: to });
@@ -449,7 +450,7 @@ export function injure(ctx: Ctx, p: Person, severity: number, note: string): Ill
   // A bad injury in the animated day: an ambulance takes them to the city clinic now.
   if (ctx.micro && ill.severity >= 0.5 && p.alive && !p.inVehicleId && p.health.hospitalDaysLeft === 0 && ctx.world.minuteOfDay > 0) {
     const clinic = landmark(communityOfPerson(ctx.world, p), 'clinic');
-    goNow(ctx, p, clinic, 'clinic', 'taken to the clinic by ambulance', 120, undefined, { ambulance: true });
+    if (clinic) goNow(ctx, p, clinic, 'clinic', 'taken to the clinic by ambulance', 120, undefined, { ambulance: true });
   }
   return ill;
 }

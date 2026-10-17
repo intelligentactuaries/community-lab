@@ -13,8 +13,8 @@ import './styles.css';
 
 initTheme();
 // Debug / automation hook (used by scripts/shot.ts and handy in the console).
-import('./lib/simStore').then((m) => {
-  (window as unknown as { communityLab: unknown }).communityLab = { store: m.store };
+Promise.all([import('./lib/simStore'), import('./builder/builderStore'), import('./builder/BuilderCanvas'), import('../sim/plan/edit')]).then(([m, b, c, edit]) => {
+  (window as unknown as { communityLab: unknown }).communityLab = { store: m.store, builder: b.builder, builderOps: { ...c, ...edit } };
 });
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

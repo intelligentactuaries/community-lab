@@ -27,12 +27,10 @@ export interface BigFive {
  * and the shared centre between them (the CBD, the recreation precinct and
  * the hospital campus). A settlement's id is a key; its wealth is its tier.
  */
-export type CityId = 'emmaus' | 'newhaven' | 'ithemba' | 'unity' | 'airport';
-export type CommunityId =
-  | 'ebenezer' | 'hebron' | 'kanana' | 'crossing'
-  | 'bellevue' | 'oakdale' | 'westbrook' | 'central'
-  | 'bethesda' | 'siyakha' | 'nazareth' | 'crossroads'
-  | 'cbd' | 'precinct' | 'campus' | 'airfield';
+/** A city's id: the province's are emmaus, newhaven, ithemba, unity and airport; a world made in the builder names its own. */
+export type CityId = string;
+/** A settlement's id (ebenezer, hebron, kanana, crossing … in the province). */
+export type CommunityId = string;
 /** Wealth profile of a settlement (see params.tiers); 'civic' zones have no households. */
 export type Tier = 'ultra' | 'affluent' | 'comfortable' | 'middle' | 'working' | 'low-income' | 'civic';
 

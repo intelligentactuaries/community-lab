@@ -191,7 +191,8 @@ export function seedTransit(ctx: Ctx, mk: (kind: Vehicle['kind'], x: number, y: 
       v.dir = idx === 0 ? 1 : -1;
     }
   }
-  for (let i = 0; i < TRAINS; i++) {
+  // The Hyperline's trains, where the world has a guideway with two stations or more.
+  for (let i = 0; i < (STATIONS.length >= 2 ? TRAINS : 0); i++) {
     const idx = i % 2 === 0 ? 0 : STATIONS.length - 1;
     const st = STATIONS[idx];
     const v = mk('train', st.x, st.y, st.id);
@@ -201,11 +202,12 @@ export function seedTransit(ctx: Ctx, mk: (kind: Vehicle['kind'], x: number, y: 
     v.trackPos = st.t;
     v.heading = trackPoint(st.t).heading + (v.dir > 0 ? 0 : Math.PI);
   }
-  const terminal = world.buildings[AIRPORT_TERMINAL];
+  const terminal = AIRPORT_TERMINAL ? world.buildings[AIRPORT_TERMINAL] : null;
+  if (!terminal) return;
   const stands = roomByKind(terminal, 'yard')?.spots ?? [];
   for (let i = 0; i < PLANES; i++) {
     const s = stands[i % Math.max(1, stands.length)];
-    const v = mk('plane', s?.x ?? terminal.x + terminal.w + 40, s?.y ?? terminal.y + 30 + i * 60, AIRPORT_TERMINAL);
+    const v = mk('plane', s?.x ?? terminal.x + terminal.w + 40, s?.y ?? terminal.y + 30 + i * 60, terminal.id);
     v.lineId = `air:${i}`;
     v.stopIdx = i;
     v.heading = Math.PI / 2;
@@ -220,7 +222,7 @@ export function resetTransit(world: World): void {
       const line = v.lineId ? BUS_LINE[v.lineId] : null;
       v.stopIdx = Math.max(0, line?.stops.indexOf(v.baseId ?? '') ?? 0);
       v.dir = v.stopIdx === 0 ? 1 : -1;
-    } else if (v.kind === 'train') {
+    } else if (v.kind === 'train' && STATIONS.length) {
       v.stopIdx = Math.max(0, stationIndex(v.baseId));
       v.dir = v.stopIdx === 0 ? 1 : -1;
       v.trackPos = STATIONS[v.stopIdx].t;
@@ -518,16 +520,16 @@ function boardPlane(ctx: Ctx, v: Vehicle, f: { dep: number; arr: number }): void
 /** Someone gets off a plane on the stand and walks into the terminal: passengers to the arrivals hall, the crew back to the crew room. */
 function disembark(ctx: Ctx, v: Vehicle, q: Person): void {
   const world = ctx.world;
-  const terminal = world.buildings[AIRPORT_TERMINAL];
-  const arrivals = terminal.rooms.find((r) => r.id.endsWith('-arrivals')) ?? roomByKind(terminal, 'hall');
+  const terminal = AIRPORT_TERMINAL ? world.buildings[AIRPORT_TERMINAL] : null;
+  const arrivals = terminal ? terminal.rooms.find((r) => r.id.endsWith('-arrivals')) ?? roomByKind(terminal, 'hall') : null;
   q.inVehicleId = null;
   q.loc = { x: v.x, y: v.y, buildingId: null, roomId: null, spotId: null };
   if (!q.alive || q.away) return;
-  if (q.job !== 'pilot' && arrivals) {
+  if (q.job !== 'pilot' && arrivals && terminal) {
     const seat = arrivals.spots.length ? ctx.rng.stream('movement').pick(arrivals.spots) : null;
     q.target = { x: seat?.x ?? arrivals.x + arrivals.w / 2, y: seat?.y ?? arrivals.y + arrivals.h / 2, buildingId: terminal.id, roomId: arrivals.id, spotId: seat?.id ?? null };
   }
-  if (q.target) q.path = entryPath(ctx, terminal, { x: q.target.x, y: q.target.y });
+  if (q.target && terminal) q.path = entryPath(ctx, terminal, { x: q.target.x, y: q.target.y });
 }
 
 /** Whether a passenger's day away is over by this landing (or their plan has moved on). */

@@ -138,7 +138,9 @@ export const lab = {
   },
   async run(): Promise<void> {
     try {
-      const job = await jpost<LabJob>('/api/experiments', lab.spec());
+      // From the world on screen: a built world goes with the spec (the exchange's patches carry no plans).
+      const world = state.draft.fromProvince ? (store.params.plan ?? null) : null;
+      const job = await jpost<LabJob>('/api/experiments', world ? { ...lab.spec(), world } : lab.spec());
       set({ job, result: null });
       lab.watch(job.id);
     } catch (e) {
@@ -199,9 +201,9 @@ export const lab = {
   },
 };
 
-/** The province's own basis as a patch: what its parameters change from the defaults (the seed aside). */
+/** The province's own basis as a patch: what its parameters change from the defaults (the seed aside, and the world, which goes beside it). */
 export function provinceBase(): Record<string, unknown> {
-  const { mortalityOverride: _m, shocks: _s, ...changed } = changedFromDefaults(store.params);
+  const { mortalityOverride: _m, shocks: _s, plan: _p, ...changed } = changedFromDefaults(store.params);
   return changed;
 }
 

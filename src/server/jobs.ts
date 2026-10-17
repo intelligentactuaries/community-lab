@@ -9,7 +9,9 @@ import { type BatchRow, type BatchSummary, aggregate } from '../sim/batch';
 import { type ArmRun, experimentSeeds, summariseExperiment } from '../sim/experiment';
 import { type ExperienceCell, type Grouping, poolCells } from '../sim/experience';
 import type { ScenarioParams } from '../sim/params';
-import { applyPatch, changedFromDefaults } from '../sim/patch';
+import { applyPatch, provenanceChanges } from '../sim/patch';
+import { planHash } from '../sim/plan/hash';
+import type { WorldPlan } from '../sim/plan/types';
 import { APP_VERSION, experienceExport, provenanceFor } from '../shared/exports';
 import { saveBatch, saveExperiment, saveExport } from './db';
 import { pool } from './pool';
@@ -74,17 +76,22 @@ async function runAll<T>(job: Job, tasks: Array<() => Promise<T>>): Promise<T[] 
 
 // ─── experiments ────────────────────────────────────────────────────────
 
-export function startExperiment(spec: ExperimentSpec): Job {
+/** A world's line in a result's notes: which world the runs were set in. */
+const worldNote = (w: WorldPlan) => `World: ${w.name}, built in the Community Builder (plan ${planHash(w)}).`;
+
+/** Start an experiment; `world` is the world its arms run in (none: the built-in province). */
+export function startExperiment(spec: ExperimentSpec, world: WorldPlan | null = null): Job {
   const id = newId('x');
   const warnings = [...applyPatch({}, spec.base).rejected.map((r) => `base: ${r}`), ...spec.arms.flatMap((a) => applyPatch({}, a.params).rejected.map((r) => `${a.id}: ${r}`))];
   const job: Job = { id, kind: 'experiment', title: spec.title, status: 'running', done: 0, total: 0, startedAt: Date.now(), warnings };
   jobs.set(id, job);
   const seeds = experimentSeeds(spec);
   const arms = [null, ...spec.arms];
-  const tasks = seeds.flatMap((seed) => arms.map((arm) => () => pool.run<ArmRun>({ kind: 'arm', spec: { base: spec.base, baseMortality: spec.baseMortality, baseShocks: spec.baseShocks, years: spec.years }, arm, seed }, id)));
+  const tasks = seeds.flatMap((seed) => arms.map((arm) => () => pool.run<ArmRun>({ kind: 'arm', spec: { base: spec.base, baseMortality: spec.baseMortality, baseShocks: spec.baseShocks, years: spec.years, world }, arm, seed }, id)));
   void runAll(job, tasks).then((runs) => {
     if (!runs) return;
     const result = summariseExperiment(id, spec, runs, Date.now() - job.startedAt, APP_VERSION);
+    if (world) result.provenance = { ...result.provenance, notes: [...(result.provenance.notes ?? []), worldNote(world)] };
     job.result = result;
     job.status = 'done';
     saveExperiment(id, spec.title, spec, result);
@@ -99,6 +106,8 @@ export interface PooledExportRequest {
   /** The basis and shocks the province lives under, when it lives under some (a supplied basis, a stress). */
   mortality?: MortalityOverride;
   shocks?: Shock[];
+  /** The world the runs are set in (a plan made in the Community Builder; none for the province). */
+  world?: WorldPlan | null;
   seeds: number;
   years: number;
   ageWidth: number;
@@ -119,6 +128,7 @@ export function startPooledExport(req: PooledExportRequest): Job {
   const { params, rejected } = applyPatch({}, req.base);
   if (req.mortality) params.mortalityOverride = req.mortality;
   if (req.shocks?.length) params.shocks = req.shocks;
+  if (req.world) params.plan = req.world;
   const job: Job = { id, kind: 'export', title: `Mortality experience · ${req.seeds} seeds × ${req.years} years`, status: 'running', done: 0, total: 0, startedAt: Date.now(), warnings: rejected };
   jobs.set(id, job);
   const seeds = Array.from({ length: req.seeds }, (_, i) => `pool-${i + 1}`);
@@ -135,8 +145,8 @@ export function startPooledExport(req: PooledExportRequest): Job {
         seeds: req.seeds,
         assumptionsHash: first.assumptionsHash,
         scenario: 'Pooled Monte Carlo experience',
-        changed: changedFromDefaults(params as Partial<ScenarioParams>),
-        notes: [`Seeds pool-1 … pool-${req.seeds}, ${req.years} years each, one basis (assumptions ${first.assumptionsHash}).`, ...rejected.map((r) => `Left out: ${r}`)],
+        changed: provenanceChanges(params as Partial<ScenarioParams>),
+        notes: [`Seeds pool-1 … pool-${req.seeds}, ${req.years} years each, one basis (assumptions ${first.assumptionsHash}).`, ...(req.world ? [worldNote(req.world)] : []), ...rejected.map((r) => `Left out: ${r}`)],
       }),
     });
     job.result = exp;

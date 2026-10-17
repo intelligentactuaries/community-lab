@@ -12,6 +12,7 @@
 # distance), each with its binding, texture coordinates into shared atlases
 # and weights. Lengths are metres; y is up, the figure faces +z, its left is +x.
 import json
+from collections import defaultdict
 import math
 import os
 import struct
@@ -392,18 +393,31 @@ def main():
         pieces = ['overalls', 'tee'] if src == 'male_worksuit01' else ['top', 'bottom']
         spare = [clothes.Part(None, pr, clothes.cut(pr, w)) for w in pieces if w not in [x[1] for x in parts]]
         clothes.assign_deletes(pr, cells + [x for x in spare if x.verts])
-        # The texture's shading per slot region, in this outfit's cell.
+        # The texture's shading per slot region, in this outfit's cell (the suit's jacket, shirt and tie told apart
+        # texel by texel, which of its colours each takes kept in the cell's green).
         regions = {}
+        sub_map = None
         for part in cells:
+            if len(part.slots) > 1:
+                whole = clothes.uv_region(pr.mesh, part.faces, 512)
+                cls = clothes.texel_slots(pr.texture(), 512, whole)
+                for k in range(len(part.slots)):
+                    regions[(part.id, k)] = whole & (cls == k)
+                sub_map = np.where(whole, cls, 0)
+                continue
             for k in range(len(part.slots)):
                 fl = [f for f in part.faces if part.face_slot(f) == k]
                 regions[(part.id, k)] = clothes.uv_region(pr.mesh, fl, 512)
-        cell = clothes.detail_map(pr.texture(), 512, regions, striped=src in clothes.STRIPED)
+        cell = clothes.detail_map(pr.texture(), 512, regions, striped=src in clothes.STRIPED, sub=sub_map)
         x, y = (ci % 4) * 512, (ci // 4) * 512
         cloth.put(src, cell, x, y)
         parts_made.extend(cells)
         for part in cells:
             sub = SubProxy(pr, part.verts, part.faces, part.deletes, part.id)
+            if part.id in LONGER:
+                # Women's tops cut for a high skirt reach no further than the waist: longer, so they lie over the
+                # waistband of jeans or shorts as well.
+                print(part.id, 'lengthened:', clothes.lengthen(sub, b, LONGER[part.id]), 'vertices moved')
             garment_sources[part.id] = SubProxyFit(sub)
             hide = clothes.hidden_triangles(body_faces, body['tri_of_face'], part.deletes)
             fsub = (lambda fi, part=part: part.face_slot(part.faces[fi]))
@@ -420,10 +434,11 @@ def main():
         hide = clothes.hidden_triangles(body_faces, body['tri_of_face'], [d for d in pr.delete if d < 13380])
         garment_sources[name] = pr
         proxies.append(add_proxy(ctx, pr, 'clothes', name, uv=lambda uv, k=name: cloth.uv(k, uv), hide=hide, face_slot=lambda f: 0, slots=['own']))
-    # Plain cotton for the garments made here (skirts, night clothes, hats): an even weave, no print.
+    # Plain cotton for the garments made here (skirts, night clothes, hats): an even weave, no print (one colour: green
+    # nought).
     rng = np.random.default_rng(7)
     weave = 0.5 + tx.blur(rng.normal(0, 1, (512, 512)), 0.8) * 0.05
-    cloth.put('plain', np.repeat(weave[..., None], 3, axis=-1), 3 * 512, 3 * 512)
+    cloth.put('plain', np.stack([weave, np.zeros_like(weave), weave], axis=-1), 3 * 512, 3 * 512)
     plain_uv = lambda uv: cloth.uv('plain', uv * 0.9 + 0.05)
     body_v = b.v[:13380]
     # Shorts: the jeans cut above the knee.
@@ -439,9 +454,19 @@ def main():
         garment_sources[gid] = SubProxyFit(sub)
         hide = clothes.hidden_triangles(body_faces, body['tri_of_face'], dels)
         proxies.append(add_proxy(ctx, sub, 'clothes', gid, uv=lambda uv, k=pr.name: cloth.uv(k, uv), hide=hide, face_slot=lambda f: 0, slots=['main']))
-    # MakeHuman's own helpers as garments: the tights (a baby's onesie, night clothes), the skirt tube (skirts, a coat's tails).
-    for gid, group, lo, hi, lift in [('onesie', 'helper-tights', -99, 6.0, 0.03), ('skirt_long', 'helper-skirt', -99, 99, 0.06), ('skirt_knee', 'helper-skirt', -3.3, 99, 0.06), ('coat', 'helper-skirt', -3.8, 99, 0.28)]:
-        hp = HelperProxy(b, group, lo, hi, lift, gid)
+    # MakeHuman's own helpers as garments: the tights (a baby's onesie, night clothes), the skirt tube (skirts, a coat's
+    # tails). The skirt is cut after a whole ring of the tube, so its hem follows the ring rather than stepping across
+    # rings; the coat's tails stop at the knee and are open down the front.
+    rings = clothes.ring_rows(b, 'helper-skirt')
+    knee = knee_ring(b, rings)
+    front = lambda vs: abs(np.mean(b.v[vs][:, 0])) < 0.45 and np.mean(b.v[vs][:, 2]) > 0
+    for gid, group, lo, hi, lift, keep in [
+        ('onesie', 'helper-tights', -99, 6.0, 0.03, None),
+        ('skirt_long', 'helper-skirt', -99, 99, 0.06, None),
+        ('skirt_knee', 'helper-skirt', -99, 99, 0.06, lambda vs: max(rings[v] for v in vs) <= knee),
+        ('coat', 'helper-skirt', -99, 99, 0.12, lambda vs: max(rings[v] for v in vs) <= knee + 1 and not front(vs)),
+    ]:
+        hp = HelperProxy(b, group, lo, hi, lift, gid, keep)
         near = hp.covering(body_v, 0.25 if group == 'helper-tights' else 1.3)
         if group == 'helper-skirt':
             # under a skirt: the hips and thighs down to a hand above the hem (the legs swing inside it)
@@ -507,6 +532,18 @@ def main():
 
 
 HAIRS = ['short01', 'short02', 'short03', 'short04', 'afro01', 'bob01', 'bob02', 'braid01', 'long01', 'ponytail01']
+# Tops made longer (decimetres at the hem): the blouse is cut to meet a high skirt, the T-shirt only just reaches jeans.
+LONGER = {'f_blouse': 0.55, 'f_tee': 0.35}
+
+
+def knee_ring(b, rings):
+    """The skirt tube's ring that lies just below the knee (where a knee-length skirt's hem falls)."""
+    J = mh.skeleton()['joints']
+    knee = np.mean([b.v[J[f'lowerleg01.{s}____head']].mean(0)[1] for s in SIDES])
+    by = defaultdict(list)
+    for v, r in rings.items():
+        by[r].append(b.v[v][1])
+    return min(by, key=lambda r: abs(np.mean(by[r]) - (knee - 0.25)))
 # Brows: fuller and straighter for men, finer and arched for women (see dress.ts).
 BROWS = ['eyebrow001', 'eyebrow002', 'eyebrow006', 'eyebrow007', 'eyebrow008', 'eyebrow009', 'eyebrow010', 'eyebrow011', 'eyebrow012']
 LASHES = ['eyelashes01', 'eyelashes02']
@@ -670,9 +707,9 @@ class HelperProxy:
     """Part of the base mesh's own helpers worn as a garment: each vertex bound to itself, lifted off the skin along
     its normal."""
 
-    def __init__(self, b, group, lo, hi, lift, name):
+    def __init__(self, b, group, lo, hi, lift, name, keep=None):
         g = b.groups[group]
-        faces = [i for i, x in enumerate(b.fg) if x == g and lo < min(b.v[v][1] for v in b.fv[i]) and max(b.v[v][1] for v in b.fv[i]) < hi]
+        faces = [i for i, x in enumerate(b.fg) if x == g and lo < min(b.v[v][1] for v in b.fv[i]) and max(b.v[v][1] for v in b.fv[i]) < hi and (keep is None or keep(b.fv[i]))]
         verts = sorted({v for f in faces for v in b.fv[f]})
         at = {v: i for i, v in enumerate(verts)}
         # Normals of the helper surface (area-weighted), outward.

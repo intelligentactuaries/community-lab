@@ -34,7 +34,8 @@ import { freeYardSlot } from '../parking';
 import { createVehicle } from '../population';
 import { BUSES_PER_LINE, BUS_DWELL, BUS_HOURS, BUS_LAYOVER, BUS_SPEED, FLIGHTS, PLANE_SEATS, TRAINS, TRAIN_DWELL, TRAIN_HOURS, TRAIN_LAYOVER } from '../transit';
 import type { CommunityId, Household, Person, World } from '../types';
-import { BUS_LINES, COMMUNITY, STATIONS, roadDistance } from '../world';
+import { activeAtlas } from '../atlas';
+import { BUS_HUB, BUS_LINES, COMMUNITY, STATIONS, defaultCommunity, hasAirport, hasHyperline, roadDistance } from '../world';
 import { movement, natural, r2 } from './accounts';
 import { pmt, prepayLoan, requestLoan } from './bank';
 import type { MarketsState } from './markets';
@@ -377,14 +378,15 @@ export function cardFor(phi: number, cpiF: number): RideCard {
 
 // ─── Geometry ───────────────────────────────────────────────────────────────
 
-const CENTRE = 'mall';
 const REGIONAL_KM = 28;
 const AIRPORT_KM = 4.5;
 
 /** Each settlement's representative trip to the centre and its access to the bus and the Hyperline. */
 export function settlementTrips(ctx: Ctx): SettlementTrip[] {
   const world = ctx.world;
-  const centre = world.buildings[CENTRE];
+  // Town: the mall where there is one, else the world's main market or civic heart (atlas.venues.centre).
+  const centreId = activeAtlas().venues.centre;
+  const centre = centreId ? world.buildings[centreId] : undefined;
   const out: SettlementTrip[] = [];
   const byCom = new Map<CommunityId, Array<{ x: number; y: number; node: string }>>();
   for (const id in world.buildings) {
@@ -405,7 +407,7 @@ export function settlementTrips(ctx: Ctx): SettlementTrip[] {
     // The bus: a line with a stop near the settlement runs to the terminus, a short walk from the centre.
     let busWalk: number | null = null;
     let busKm = dKm;
-    const terminus = world.buildings.terminus;
+    const terminus = BUS_HUB ? world.buildings[BUS_HUB] : undefined;
     for (const line of BUS_LINES) {
       if (line.id === 'airport') continue;
       let best: { d: number; id: string } | null = null;
@@ -427,7 +429,7 @@ export function settlementTrips(ctx: Ctx): SettlementTrip[] {
     // The Hyperline: the nearest station to the settlement, and Unity Central to the centre.
     let hyperWalk: number | null = null;
     let hyperKm = dKm;
-    const unity = STATIONS.find((s) => s.id === 'st-unity');
+    const unity = STATIONS.find((s) => s.id === activeAtlas().venues.centralStation);
     const near = STATIONS.map((s) => ({ s, d: Math.hypot(s.x - rep.x, s.y - rep.y) })).sort((a, b) => a.d - b.d)[0];
     if (near && unity && near.s.id !== unity.id && near.d <= 1_300) {
       const egress = Math.hypot(unity.x - centre.entrance.x, unity.y - centre.entrance.y);
@@ -557,7 +559,7 @@ export function planTransport(ctx: Ctx, F: FinanceState, budgets: BudgetLike[], 
   const card = T.fares.ride;
   // ── Demand ──
   const geo = new Map(T.geometry.map((g) => [g.community, g]));
-  const fallbackGeo: SettlementTrip = { community: 'ebenezer', name: 'Ebenezer', dKm: 3, busWalk: null, busKm: 3, hyperWalk: null, hyperKm: 3 };
+  const fallbackGeo: SettlementTrip = { community: defaultCommunity(), name: COMMUNITY[defaultCommunity()]?.name ?? 'Ebenezer', dKm: 3, busWalk: null, busKm: 3, hyperWalk: null, hyperKm: 3 };
   const baseFares = T.base;
   const baseCard = cardFor(1, 1);
   interface Hh {
@@ -600,11 +602,12 @@ export function planTransport(ctx: Ctx, F: FinanceState, budgets: BudgetLike[], 
   const fareIdxAir = (T.fares.air + T.fares.airSurcharge) / (AIR_FARE_0 * inp.cpiF);
   const lf = clamp(AIR_LF_0 * Math.pow(fareIdxAir, -0.8) * (1 + 1.0 * inp.gap), 0.25, 0.92);
   const daysInMonth = 30.44;
-  const seatsOut = FLIGHTS.length * PLANE_SEATS * daysInMonth;
+  // No airport, no flights: no seats, no passengers off the planes.
+  const seatsOut = (hasAirport() ? FLIGHTS.length : 0) * PLANE_SEATS * daysInMonth;
   const residentsOut = Object.values(T.air.business).reduce((s, x) => s + x, 0) + Object.values(T.air.leisure).reduce((s, x) => s + x, 0);
   const rowPax = Math.max(0, Math.round(lf * seatsOut - residentsOut));
   const airportBase = 0.12 * 2 * rowPax;
-  const regionalBase = 80 * (1 + 1.2 * inp.gap);
+  const regionalBase = 80 * activeAtlas().marketScale * (1 + 1.2 * inp.gap);
   const fareAirport1 = rideFareNet(card, AIRPORT_KM, 1);
   const fareRegional1 = rideFareNet(card, REGIONAL_KM, 1);
   const fareAirport0 = rideFareNet(baseCard, AIRPORT_KM, 1) * inp.cpiF;
@@ -1052,12 +1055,14 @@ export function transportOperators(ctx: Ctx, F: FinanceState, month: number, pla
   // The platform's own costs: card processing (2.5% of what it collects), servers and marketing.
   {
     const processing = r2(0.025 * (gross + booking));
-    const servers = r2(9_000 * cpiF);
+    // In a market smaller than the province's, a month with nobody driving idles the local operation (no hosting bill).
+    const scaleM = activeAtlas().marketScale;
+    const servers = scaleM < 1 && drivers.length === 0 ? 0 : r2(9_000 * cpiF * scaleM);
     payBatch(F, 'hamba', day, month, `PUR-${ym}`, 'Card processing, cloud hosting and marketing', [
       { to: ROW, amount: processing, fromAccount: '5320', toAccount: '4040', fromExtra: vatIn(processing), flow: 'imports' },
       { to: ROW, amount: servers, fromAccount: '5320', toAccount: '4040', fromExtra: vatIn(servers), flow: 'imports' },
     ], 'purchases');
-    depreciateFixed(F, 'hamba', day, month, 60_000 / 36);
+    depreciateFixed(F, 'hamba', day, month, BUSINESS.hamba?.dep ?? 60_000 / 36);
   }
   // ── Unity Fleet Rentals: the cars' running costs and depreciation (rent came in from the drivers) ──
   fleetMonth(ctx, F, month, day, ym, cpiF, help, totals, events);
@@ -1288,6 +1293,7 @@ export function timetableKm(ctx: Ctx, days: number): { busKm: number; trainKm: n
     const serviceMin = BUS_HOURS[1] - BUS_HOURS[0];
     busKm += BUSES_PER_LINE * (serviceMin / roundMin) * 2 * km * days;
   }
+  if (!hasHyperline()) return { busKm: r2(busKm), trainKm: 0 };
   const ts = STATIONS.map((s) => s.t);
   const lineKm = (Math.max(...ts) - Math.min(...ts)) / 1000;
   const oneWayMin = (STATIONS.length - 1) * (TRAIN_DWELL + 0.2) + TRAIN_LAYOVER;
@@ -1301,12 +1307,15 @@ function transitMonth(ctx: Ctx, F: FinanceState, month: number, day: number, ym:
   const cpiF = inp.cpiF;
   const f = T.fares;
   const vatRate = F.tax.tables.vatRate;
+  // A world with neither buses nor a Hyperline has no transit operator to run.
+  if (!BUS_LINES.length && !hasHyperline()) return idleTransit();
   const { busKm, trainKm } = timetableKm(ctx, 30.44);
   // Riders from beyond the modelled households: commuters, visitors and the airport's passengers.
   const busIdx = f.bus / (T.base.bus * cpiF);
   const hyperIdx = hyperFare(f, 3.5) / (hyperFare(T.base, 3.5) * cpiF);
-  const busRow = Math.max(0, BUS_ROW_BASE * Math.pow(busIdx, -0.35) * (1 + 0.8 * inp.gap));
-  const hyperRow = Math.max(0, (HYPER_ROW_BASE + 0.45 * 2 * plan.rowPax) * Math.pow(hyperIdx, -0.4) * (1 + 0.8 * inp.gap));
+  const scale = activeAtlas().marketScale;
+  const busRow = BUS_LINES.length ? Math.max(0, BUS_ROW_BASE * scale * Math.pow(busIdx, -0.35) * (1 + 0.8 * inp.gap)) : 0;
+  const hyperRow = hasHyperline() ? Math.max(0, (HYPER_ROW_BASE * scale + 0.45 * 2 * plan.rowPax) * Math.pow(hyperIdx, -0.4) * (1 + 0.8 * inp.gap)) : 0;
   const rowFares = r2(busRow * f.bus + hyperRow * hyperFare(f, 3.5));
   if (rowFares > 0) pay(F, { from: ROW, to: 'transit', amount: rowFares, day, month, ref: `FARE-${ym}`, memo: 'Fares from riders beyond the province\'s households (VAT-exempt passenger transport)', flow: 'exports', fromAccount: '5370', toAccount: '4050' });
   // The network's running costs. Not a VAT vendor, so the VAT on its purchases is a cost.
@@ -1317,8 +1326,8 @@ function transitMonth(ctx: Ctx, F: FinanceState, month: number, day: number, ym:
   const power = r2(kwh * S.electricity * (1 + vatRate));
   const busMaint = r2(busKm * BUS_MAINT_PER_KM * cpiF * (1 + vatRate));
   const trainMaint = r2(trainKm * TRAIN_MAINT_PER_KM * cpiF * (1 + vatRate));
-  const admin = r2(TRANSIT_ADMIN * cpiF * (1 + vatRate));
-  const insurance = r2(TRANSIT_INSURANCE * cpiF);
+  const admin = r2(TRANSIT_ADMIN * scale * cpiF * (1 + vatRate));
+  const insurance = r2(TRANSIT_INSURANCE * scale * cpiF);
   const excl = (x: number) => r2(x / (1 + vatRate));
   const vatOf = (x: number) => r2(x - x / (1 + vatRate));
   payBatch(F, 'transit', day, month, `RUN-${ym}`, 'Diesel for the buses, traction power for the Hyperline, maintenance, ticketing and insurance', [
@@ -1347,7 +1356,7 @@ function transitMonth(ctx: Ctx, F: FinanceState, month: number, day: number, ym:
   // The operations grant: tops the operator's cash up to 1.25 months of running costs.
   const cash = deposits(F, 'transit');
   const subsidy = r2(Math.max(0, 1.25 * costs - cash));
-  if (subsidy > 0) pay(F, { from: GOV, to: 'transit', amount: subsidy, day, month, ref: `PTOG-${ym}`, memo: 'Public transport operations grant to Unity Transit', flow: 'grants', fromAccount: '5335', toAccount: '4160' });
+  if (subsidy > 0) pay(F, { from: GOV, to: 'transit', amount: subsidy, day, month, ref: `PTOG-${ym}`, memo: `Public transport operations grant to ${F.entities.transit?.name ?? 'Unity Transit'}`, flow: 'grants', fromAccount: '5335', toAccount: '4160' });
   const wasMarket = T.months.length ? T.months[T.months.length - 1].transit.market : false;
   const market = recovery12 >= 0.5;
   if (T.months.length && market !== wasMarket) events.push(`Unity Transit's fares ${market ? 'now cover' : 'no longer cover'} half its running costs over the year (${(recovery12 * 100).toFixed(0)}%): the national accounts ${market ? 'treat it as a market producer' : 'count it as a non-market public producer'}.`);
@@ -1373,8 +1382,15 @@ function transitMonth(ctx: Ctx, F: FinanceState, month: number, day: number, ym:
 
 // ── Air travel and the airport company ──
 
+/** A month with no transit operator (no buses, no Hyperline). */
+function idleTransit(): TransitMonth {
+  return { busKm: 0, trainKm: 0, busLitres: 0, trainKwh: 0, boardingsBusRes: 0, boardingsHyperRes: 0, boardingsBusRow: 0, boardingsHyperRow: 0, fareboxRes: 0, fareboxRow: 0, costs: 0, compensation: 0, subsidy: 0, recovery: 0, recovery12: 0, market: false };
+}
+
 function airMonth(ctx: Ctx, F: FinanceState, month: number, day: number, ym: string, plan: TransportPlan, inp: PlanInputs, help: OperatorHelpers, totals: OperatorTotals): AirMonth {
   const world = ctx.world;
+  // A world without an airport: no airline, no airport company.
+  if (!hasAirport() || !F.ledgers.books.airportco) return { landings: 0, seats: 0, residentTrips: 0, businessTrips: 0, rowPax: 0, loadFactor: 0, fare: r2(F.transport.fares.air), surcharge: F.transport.fares.airSurcharge, tickets: 0, airportRevenue: 0, airportCosts: 0 };
   const T = F.transport;
   const S = F.markets;
   const f = T.fares;

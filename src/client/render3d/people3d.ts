@@ -127,6 +127,8 @@ export class People3D {
   private slotNo = 0;
   /** Where each figure was drawn last frame (for picking and labels): feet, floor, the top of the head. */
   readonly drawn = new Map<string, { x: number; y: number; floor: number; top: number; lying: boolean }>();
+  /** This frame, the seat someone is drawn in that is not their own spot (the pew they stopped by). */
+  private seatAt = new Map<string, string>();
 
   constructor(private world: World, private w3: World3D) {
     this.root.name = 'people';
@@ -140,8 +142,9 @@ export class People3D {
     if (!kit) return;
     setPeopleNight(f.night ?? 0);
     this.frameNo++;
-    // Full figures built per frame (each takes a few milliseconds); the rest show their light body until their turn.
-    Human.budget = 2;
+    // Full figures built per frame (one: each takes several milliseconds, dressed); the rest show their light body
+    // until their turn.
+    Human.budget = 1;
     const world = this.world;
     const near: Array<{ p: Person; d: number }> = [];
     for (const id in world.people) {
@@ -156,14 +159,25 @@ export class People3D {
     for (const [id, g] of this.figs) {
       if (!keep.has(id)) this.drop(id, g);
     }
-    // Who shares a spot (a couple in a bed, a family on a pew), and who is in which vehicle seat.
+    // Who shares a spot (a couple in a bed, a family on a pew), in order along it as they stand; among pews whoever has
+    // stopped in the rows sits down in the pew they stopped by (after a service people sit and talk; nobody stands
+    // about between the benches).
     const sharers = new Map<string, string[]>();
+    const along = new Map<string, number>();
+    this.seatAt.clear();
     for (const { p } of near) {
-      if (!keep.has(p.id) || !p.loc.spotId) continue;
-      const arr = sharers.get(p.loc.spotId) ?? [];
+      if (!keep.has(p.id)) continue;
+      const pew = this.pewFor(p);
+      const sid = pew ?? p.loc.spotId;
+      if (!sid) continue;
+      if (pew) this.seatAt.set(p.id, pew);
+      const arr = sharers.get(sid) ?? [];
       arr.push(p.id);
-      sharers.set(p.loc.spotId, arr);
+      sharers.set(sid, arr);
+      const sp = this.w3.spots.get(sid);
+      along.set(p.id, sp ? (p.loc.x - sp.x) * Math.sin(sp.spread) + (p.loc.y - sp.y) * Math.cos(sp.spread) : 0);
     }
+    for (const arr of sharers.values()) arr.sort((a, b) => along.get(a)! - along.get(b)! || (a < b ? -1 : 1));
     const circles = this.circles(near, keep);
     this.stepAside(f);
     let built = 0;
@@ -177,6 +191,37 @@ export class People3D {
       }
       this.place(p, g, f, sharers, circles);
     }
+  }
+
+  /**
+   * In a nave, for someone who has stopped among the pews away from their own spot: the pew they stopped by (in the row
+   * in front of it or just behind it, or in the aisle at its end), which they sit down in. Null otherwise.
+   */
+  private pewFor(p: Person): string | null {
+    const own = p.loc.spotId;
+    if (p.path.length || p.inVehicleId || !p.loc.buildingId || !p.loc.roomId) return null;
+    const room = this.world.buildings[p.loc.buildingId]?.rooms.find((r) => r.id === p.loc.roomId);
+    if (!room || room.kind !== 'nave') return null;
+    const mine = own ? this.w3.spots.get(own) : undefined;
+    if (mine && Math.hypot(p.loc.x - mine.x, p.loc.y - mine.y) < 1.6) return null;
+    let best: string | null = null;
+    let bd = Infinity;
+    for (const s of room.spots) {
+      if (s.kind !== 'pew') continue;
+      const sp = this.w3.spots.get(s.id);
+      if (!sp) continue;
+      const dx = p.loc.x - sp.x;
+      const dy = p.loc.y - sp.y;
+      const al = dx * Math.sin(sp.spread) + dy * Math.cos(sp.spread);
+      const ac = dx * Math.sin(sp.yaw) + dy * Math.cos(sp.yaw);
+      if (Math.abs(al) > 2.7 || ac < -1.1 || ac > 2.3) continue;
+      // Nearest across the row, then along it.
+      const d = Math.abs(ac) + Math.max(0, Math.abs(al) - 1.75);
+      if (d >= bd) continue;
+      bd = d;
+      best = s.id;
+    }
+    return best;
   }
 
   private build(kit: HumanKit, p: Person): Figure {
@@ -275,7 +320,9 @@ export class People3D {
         w[0] = lx * side;
         w[1] = ly * side;
       }
-      const cap = g.indoors ? 0.3 : 3;
+      // (Indoors only a little, so nobody is pushed through a wall; more for those standing about, who would
+      // otherwise stand inside each other.)
+      const cap = g.indoors ? (g.act.base === 'walk' ? 0.3 : 0.5) : 3;
       const len = Math.hypot(w[0], w[1]);
       if (len > cap) {
         w[0] *= cap / len;
@@ -347,8 +394,11 @@ export class People3D {
     const walled = !!room && !['yard', 'field', 'pitch', 'graves', 'pen', 'stop', 'stand'].includes(room.kind);
     let floor = walled ? FLOOR_Y : GROUND_Y;
     if (room && this.w3.decks.has(room.id)) floor = PLATFORM_Y;
-    const sp: SpotPose | undefined = p.loc.spotId ? this.w3.spots.get(p.loc.spotId) : undefined;
-    const spot = p.loc.spotId && room ? room.spots.find((s) => s.id === p.loc.spotId) : undefined;
+    // Their own spot, or the pew they have stopped by.
+    const pew = this.seatAt.get(p.id);
+    const spotId = pew ?? p.loc.spotId;
+    const sp: SpotPose | undefined = spotId ? this.w3.spots.get(spotId) : undefined;
+    const spot = spotId && room ? room.spots.find((s) => s.id === spotId) : undefined;
     const spotKind = spot?.kind;
     const walking = g.speed > 0.25 && !p.inVehicleId;
     let base: Act['base'] = walking ? 'walk' : 'stand';
@@ -359,7 +409,7 @@ export class People3D {
     let roll = 0;
     let pitch = 0;
     let bodyRoll = 0;
-    const atSpot = !!sp && Math.hypot(p.loc.x - sp.x, p.loc.y - sp.y) < 1.6 && !walking;
+    const atSpot = !!sp && (pew !== undefined || Math.hypot(p.loc.x - sp.x, p.loc.y - sp.y) < 1.6) && !walking;
     const sleeping = !!a && a.kind === 'sleep' && !!sp && sp.pose === 'lie';
     const hs = p.health.state;
     let lying = false;
@@ -391,9 +441,9 @@ export class People3D {
       driving = base === 'drive';
       wheel = r.turn;
       lying = !!st.lie;
-    } else if (atSpot && sp && (sharers.get(p.loc.spotId!) ?? [p.id]).indexOf(p.id) >= capacity(spotKind)) {
+    } else if (atSpot && sp && (sharers.get(spotId!) ?? [p.id]).indexOf(p.id) >= capacity(spotKind)) {
       // More people than the seat holds: the rest stand beside it (a visitor at a hospital bed, a friend by an armchair).
-      const mates = sharers.get(p.loc.spotId!) ?? [p.id];
+      const mates = sharers.get(spotId!) ?? [p.id];
       const extra = mates.indexOf(p.id) - capacity(spotKind);
       const side = extra % 2 === 0 ? 1 : -1;
       const off = side * (0.75 + Math.floor(extra / 2) * 0.55);
@@ -401,7 +451,7 @@ export class People3D {
       y = sp.y + Math.cos(sp.spread) * off;
       yaw = sp.pose === 'lie' ? yawToward(x, y, sp.x, sp.y) : sp.yaw;
     } else if (atSpot && sp) {
-      const all = sharers.get(p.loc.spotId!) ?? [p.id];
+      const all = sharers.get(spotId!) ?? [p.id];
       const mates = all.slice(0, capacity(spotKind));
       const i = mates.indexOf(p.id);
       const n = mates.length;
@@ -467,6 +517,23 @@ export class People3D {
         // Seated people turn their heads rather than their chairs.
         if (base === 'stand') yaw = want;
       }
+    }
+    // Standing about among others at a gathering (fellowship after a service, a wedding, a visit): facing the nearest of
+    // them, not whichever way they last walked.
+    if (!conv && base === 'stand' && !atSpot && walled && a && SOCIAL.has(a.kind)) {
+      let best = 3.2;
+      let tx = 0;
+      let ty = 0;
+      for (const [id, o] of this.drawn) {
+        if (id === p.id || o.lying || Math.abs(o.floor - floor) > 0.5) continue;
+        const dd = Math.hypot(o.x - x, o.y - y);
+        if (dd < best && dd > 0.2) {
+          best = dd;
+          tx = o.x;
+          ty = o.y;
+        }
+      }
+      if (best < 3.2) yaw = yawToward(x, y, tx, ty);
     }
     // Walkers keep to the left of their way outdoors (not through doorways).
     const outdoors = !p.loc.buildingId && !p.inVehicleId;
@@ -552,9 +619,9 @@ export class People3D {
     g.animAcc += f.dt;
     const ran = !g.settled || (this.frameNo + g.slot) % LOD_EVERY[tier] === 0;
     if (ran) {
-      g.m.update(f.t, g.animAcc, act);
+      g.m.update(f.t, g.animAcc, act, f.dt);
       g.animAcc = 0;
-    }
+    } else g.m.ease(f.dt);
     if (!g.settled) {
       g.m.snap();
       g.settled = true;
@@ -562,7 +629,7 @@ export class People3D {
     // One duvet over whoever lies in a bed (a blanket in the ward), laid by the first of them and draped over all
     // of them; what lies beneath it is not drawn, so nothing pokes through it.
     const inBed = lying && !p.inVehicleId && !!sp && spotKind !== 'exam';
-    const mates = inBed && p.loc.spotId ? (sharers.get(p.loc.spotId) ?? [p.id]).slice(0, capacity(spotKind)) : [];
+    const mates = inBed && spotId ? (sharers.get(spotId) ?? [p.id]).slice(0, capacity(spotKind)) : [];
     if (inBed && mates[0] === p.id && sp) {
       const ward = room?.kind === 'ward';
       const hb = ward ? '#9CC7D6' : b?.kind === 'house' ? plotColor(b.plot ?? null, false) : '#8EA3BE';
@@ -727,6 +794,9 @@ function activityOf(p: Person, kind: string | undefined, spot: string | undefine
 }
 
 const tmpV = new THREE.Vector3();
+
+/** Gatherings at which people standing about turn to one another. */
+const SOCIAL = new Set(['fellowship', 'celebration', 'visit', 'youth', 'wedding', 'funeral', 'choir', 'biblestudy']);
 
 /** How many can sit (or lie) at a spot of this kind; the rest stand beside it. */
 function capacity(kind: string | undefined): number {

@@ -14,7 +14,8 @@ import { freeYardSlot } from '../parking';
 import { JOBS, createVehicle, eduRank } from '../population';
 import { calendarForDay } from '../time';
 import type { Household, Person } from '../types';
-import { CITIES, cityOf, landmark } from '../world';
+import { activeAtlas } from '../atlas';
+import { cityOf, defaultCommunity, landmark } from '../world';
 import type { FlowKind } from './accounts';
 import { cashBalance, closeYear, createLedgers, endOfMonth, incomeStatement, movement, natural, openBook, r2, snapshotMonth } from './accounts';
 import { bankMonthEnd, bankYearEnd, initBank, prudentialReturn, ratesFor, requestLoan } from './bank';
@@ -43,8 +44,6 @@ const FARM_LOCAL_SHARE_MAX = 0.6; // at most this share of the farm's output goe
 const VENDOR_MARGIN = 0.35; // informal traders' gross margin on what they sell
 const FARM_INPUT_SHARE = 0.35;
 const EXPORT_PARITY = 0.85; // farm-gate contract price relative to import parity
-const PUBLIC_SERVICES_COST = 48_000; // per city: clinic and medical-centre medicines, school materials, police, court and council running costs
-const CENTRAL_SERVICES_COST = 95_000; // the central hospital's theatres and wards, Government House, the Reserve Bank, the provincial police and the park
 const FUNERAL_COST = 15_000;
 const HOURS_PER_MONTH = (40 * 52) / 12;
 const ADULT_COST = 2_450; // basic needs, ZAR / month, 2026 prices (Stats SA upper-bound poverty line + housing and transport)
@@ -59,22 +58,27 @@ const CHILD_COST = 1_500;
 function employerFor(world: Ctx['world'], workplaceId: string): string | null {
   if (BUSINESS[workplaceId]) return workplaceId;
   if (PUBLIC_WORKPLACES.has(workplaceId)) return GOV;
-  if (workplaceId === 'bank' || COUNTER_IDS.includes(workplaceId)) return BANK;
+  if (workplaceId === activeAtlas().bankHq || COUNTER_IDS.includes(workplaceId)) return BANK;
   const b = world.buildings[workplaceId];
   if (b?.kind === 'house' && b.householdId) return hhEntity(b.householdId);
   return null;
 }
 
 function comOf(world: Ctx['world'], hh: Household) {
-  return world.buildings[hh.houseId]?.community ?? 'ebenezer';
+  return world.buildings[hh.houseId]?.community ?? defaultCommunity();
 }
 
-/** The workshop and taxi association a household's own city keeps. */
+/** A business that keeps books, or the rest of the economy where the world has none of that kind. */
+function bookOr(id: string | null): string {
+  return id && BUSINESS[id] ? id : ROW;
+}
+
+/** The workshop and taxi association a household's own city keeps (repairs and fares go to town where there is none). */
 function cityWorkshop(world: Ctx['world'], hh: Household): string {
-  return landmark(comOf(world, hh), 'workshop');
+  return bookOr(landmark(comOf(world, hh), 'workshop'));
 }
 function cityTaxi(world: Ctx['world'], hh: Household): string {
-  return landmark(comOf(world, hh), 'taxi');
+  return bookOr(landmark(comOf(world, hh), 'taxi'));
 }
 
 function taxYearLabel(cal: { year: number; month: number }): string {
@@ -174,7 +178,8 @@ export function initFinance(ctx: Ctx): void {
       owner: biz.ownerJob ? ownerAt(biz.ownerJob, biz.id) : null,
     });
   }
-  if (B.bank) B.bank.name = F.bank.name;
+  const hq = activeAtlas().bankHq;
+  if (hq && B[hq]) B[hq].name = F.bank.name;
   openingBalances(F, BANK, day, month, { '1030': P.bankFoundingCapital }, 'Founding preference share capital from the development fund, meeting the Mutual Banks Act minimum');
   openingBalances(F, SCHEME, day, month, { '1020': P.schemeReserve }, 'Opening reserve of the burial and life society');
   for (const biz of BUSINESSES) openingBalances(F, biz.id, day, month, biz.opening, biz.openingMemo);
@@ -291,11 +296,13 @@ export function hhReceive(ctx: Ctx, hh: Household, amount: number, account: stri
 }
 
 /** Stock theft or damage on the farm hits the farm's books. */
-export function farmLoss(ctx: Ctx, amount: number, memo: string): void {
+export function farmLoss(ctx: Ctx, amount: number, memo: string, farmId?: string | null): void {
   const F = ready(ctx);
   if (!F) return;
-  const paid = r2(Math.min(Math.max(0, amount), Math.max(0, deposits(F, 'farm'))));
-  if (paid > 0) pay(F, { from: 'farm', to: ROW, amount: paid, day: ctx.world.day, month: F.month, ref: 'LOSS', memo, flow: 'losses', fromAccount: '5170', toAccount: '4900' });
+  const farm = farmId && BUSINESS[farmId] ? farmId : activeAtlas().produceFarm ?? BUSINESSES.find((b) => b.kind === 'farm')?.id;
+  if (!farm || !F.ledgers.books[farm]) return;
+  const paid = r2(Math.min(Math.max(0, amount), Math.max(0, deposits(F, farm))));
+  if (paid > 0) pay(F, { from: farm, to: ROW, amount: paid, day: ctx.world.day, month: F.month, ref: 'LOSS', memo, flow: 'losses', fromAccount: '5170', toAccount: '4900' });
 }
 
 /** On a death: the society pays its benefits, then the household pays for the funeral. */
@@ -508,8 +515,8 @@ export function financeMonthStep(ctx: Ctx, month: number): void {
   const payroll = runPayroll(ctx, F, month, nmwMonthly);
   const grants = payGrants(ctx, F, month, hhs);
   const stipends = payCouncilStipends(ctx, F, month);
-  const cities = CITIES.filter((c) => c.kind === 'city').length;
-  pay(F, { from: GOV, to: ROW, amount: r2((PUBLIC_SERVICES_COST * cities + CENTRAL_SERVICES_COST) * cpiF), day, month, ref: `GOV-${cal.isoDate.slice(0, 7)}`, memo: 'Public services: three cities\' clinics, schools, police, courts and councils; the central hospital, Government House, the Reserve Bank and Unity Park', flow: 'imports', fromAccount: '5340', toAccount: '4040' });
+  const atlas = activeAtlas();
+  if (atlas.publicServicesCost > 0) pay(F, { from: GOV, to: ROW, amount: r2(atlas.publicServicesCost * cpiF), day, month, ref: `GOV-${cal.isoDate.slice(0, 7)}`, memo: atlas.publicServicesMemo, flow: 'imports', fromAccount: '5340', toAccount: '4040' });
   // 3. Household budgets, fares and the ways of getting about, the produce market, consumption
   const budgets = planBudgets(ctx, F, month, hhs, payroll, grants, stipends, cpiF, rng);
   const last = M.months[M.months.length - 1];
@@ -863,9 +870,11 @@ interface MarketResult {
 function clearMarket(ctx: Ctx, F: FinanceState, month: number, budgets: Budget[], cpiF: number): MarketResult {
   const world = ctx.world;
   const T = F.tax.tables;
+  const pm = activeAtlas().produceMarket;
+  const pf = activeAtlas().produceFarm;
   let produceWholesale = 0;
   for (const b of budgets) {
-    if (b.shop !== 'market') continue; // the deli and spaza restock town-side; fresh produce clears through the market
+    if (!pm || b.shop !== pm) continue; // the deli and spaza restock town-side; fresh produce clears through the market
     const localFoodExcl = vatOnInclusive(b.food * LOCAL_FOOD_SHARE, 1 - b.zeroRated, T).excl;
     produceWholesale += localFoodExcl * PRODUCE_SHARE * FOOD_COGS;
   }
@@ -884,9 +893,12 @@ function clearMarket(ctx: Ctx, F: FinanceState, month: number, budgets: Budget[]
   const exportValue = r2(contract * mm.importParity * EXPORT_PARITY);
   const day = world.day;
   const ref = `MKT-${ctx.cal.isoDate.slice(0, 7)}`;
-  if (localValue > 0) pay(F, { from: 'market', to: 'farm', amount: localValue, day, month, ref, memo: `Fresh produce bought from the farm at ${mm.price.toFixed(2)} × base price (${mm.localSupply.toFixed(0)} units)`, flow: 'purchases', fromAccount: '5200', toAccount: '4040' });
-  if (importValue > 0) pay(F, { from: 'market', to: ROW, amount: importValue, day, month, ref, memo: `Produce brought in from the wholesaler at import parity (${mm.imports.toFixed(0)} units)`, flow: 'imports', fromAccount: '5200', toAccount: '4040' });
-  if (exportValue > 0) pay(F, { from: ROW, to: 'farm', amount: exportValue, day, month, ref, memo: `Contract sales to the regional buyer (yield ${y.toFixed(2)})`, flow: 'exports', fromAccount: '5370', toAccount: '4040' });
+  // Without a market the farm's output all goes under contract; without a farm the market buys in from town.
+  const market = pm && F.ledgers.books[pm] ? pm : null;
+  const farm = pf && F.ledgers.books[pf] ? pf : null;
+  if (localValue > 0 && market) pay(F, { from: market, to: farm ?? ROW, amount: localValue, day, month, ref, memo: `Fresh produce bought from the farm at ${mm.price.toFixed(2)} × base price (${mm.localSupply.toFixed(0)} units)`, flow: farm ? 'purchases' : 'imports', fromAccount: '5200', toAccount: '4040' });
+  if (importValue > 0 && market) pay(F, { from: market, to: ROW, amount: importValue, day, month, ref, memo: `Produce brought in from the wholesaler at import parity (${mm.imports.toFixed(0)} units)`, flow: 'imports', fromAccount: '5200', toAccount: '4040' });
+  if (exportValue > 0 && farm) pay(F, { from: ROW, to: farm, amount: exportValue, day, month, ref, memo: `Contract sales to the regional buyer (yield ${y.toFixed(2)})`, flow: 'exports', fromAccount: '5370', toAccount: '4040' });
   if (mm.imports > 0 && y < 0.75) ctx.emit({ kind: 'economy', severity: 'alert', text: `Poor rains cut the farm's yield to ${Math.round(y * 100)}%: produce prices at the shop rose to ${Math.round((mm.price - 1) * 100)}% above base and the shop is buying in from town.` });
   return { localValue, importValue, exportValue, outputValue: r2(localValue + exportValue), yield: y, price: mm.price };
 }
@@ -952,7 +964,7 @@ function postConsumption(ctx: Ctx, F: FinanceState, month: number, budgets: Budg
     const localFood = food * localFoodShare;
     {
       const { excl, vat } = shopOut(localFood, 1 - b.zeroRated);
-      if (b.shop === 'market') totals.marketFoodExcl += excl;
+      if (b.shop === activeAtlas().produceMarket) totals.marketFoodExcl += excl;
       A.push({ to: b.shop, amount: localFood, fromAccount: '5010', toAccount: '4040', toExtra: vat > 0 ? [{ account: '2230', credit: vat }] : undefined, flow: 'consumption' });
       const townFood = food - localFood;
       const fromVendors = townFood * vendorShare;
@@ -1056,7 +1068,7 @@ function postConsumption(ctx: Ctx, F: FinanceState, month: number, budgets: Budg
     {
       const g = c * raw.goods * k;
       const local = shopOut(g * localGoodsShare, 1);
-      if (b.shop === 'market') totals.marketGoodsExcl += local.excl;
+      if (b.shop === activeAtlas().produceMarket) totals.marketGoodsExcl += local.excl;
       A.push({ to: b.shop, amount: g * localGoodsShare, fromAccount: '5040', toAccount: '4040', toExtra: local.vat > 0 ? [{ account: '2230', credit: local.vat }] : undefined, flow: 'consumption' });
       const town = vatOut(g * (1 - localGoodsShare), 1);
       A.push({ to: ROW, amount: town.excl, fromAccount: '5040', toAccount: '4040', flow: 'imports' });
@@ -1081,7 +1093,7 @@ function postConsumption(ctx: Ctx, F: FinanceState, month: number, budgets: Budg
     {
       const o = c * raw.other * k;
       const local = shopOut(o * localGoodsShare, 1);
-      if (b.shop === 'market') totals.marketOtherExcl += local.excl;
+      if (b.shop === activeAtlas().produceMarket) totals.marketOtherExcl += local.excl;
       A.push({ to: b.shop, amount: o * localGoodsShare, fromAccount: '5070', toAccount: '4040', toExtra: local.vat > 0 ? [{ account: '2230', credit: local.vat }] : undefined, flow: 'consumption' });
       const town = vatOut(o * (1 - localGoodsShare), 1);
       A.push({ to: ROW, amount: town.excl, fromAccount: '5070', toAccount: '4040', flow: 'imports' });
@@ -1258,7 +1270,8 @@ function businessMonth(ctx: Ctx, F: FinanceState, month: number, budgets: Budget
   const people = alivePeople(world);
   const staffAt = (job: string, wp: string) => people.filter((p) => p.job === job && p.workplaceId === wp && !p.away).length;
   // ── The produce hub: the Ebenezer market restocks from the farm and the wholesaler ──
-  {
+  const hub = activeAtlas().produceMarket;
+  if (hub && F.ledgers.books[hub]) {
     const produceCost = market.localValue + market.importValue;
     const produceRetail = produceCost / FOOD_COGS;
     const processed = Math.max(0, (totals.marketFoodExcl - produceRetail) * FOOD_COGS);
@@ -1271,11 +1284,11 @@ function businessMonth(ctx: Ctx, F: FinanceState, month: number, budgets: Budget
       { to: ROW, amount: r2(2_800 * cpiF), fromAccount: '5270', toAccount: '4040', fromExtra: vatInput(2_800 * cpiF, T), flow: 'imports' },
       { to: GOV, amount: r2(500 * cpiF), fromAccount: '5270', toAccount: '4150', flow: 'tax' },
     ];
-    payBatch(F, 'market', day, month, `PUR-${ym}`, 'Stock from the wholesaler, electricity and rates', items, 'purchases');
-    depreciate(F, 'market', day, month, BUSINESS.market.dep ?? 150_000 / 120);
+    payBatch(F, hub, day, month, `PUR-${ym}`, 'Stock from the wholesaler, electricity and rates', items, 'purchases');
+    depreciate(F, hub, day, month, BUSINESS[hub].dep ?? 150_000 / 120);
   }
   // ── Every other shop, the delis, the spazas and the mall restock on their own sales ──
-  for (const shop of BUSINESSES.filter((b) => (b.kind === 'shop' || b.kind === 'mall') && b.id !== 'market')) {
+  for (const shop of BUSINESSES.filter((b) => (b.kind === 'shop' || b.kind === 'mall' || b.kind === 'market') && b.id !== hub)) {
     const book = F.ledgers.books[shop.id];
     if (!book) continue;
     const sales = movement(book, '4040', month, month);
@@ -1313,9 +1326,8 @@ function businessMonth(ctx: Ctx, F: FinanceState, month: number, budgets: Budget
       const vat = r2(retainers * T.vatRate);
       pay(F, { from: ROW, to: prac.id, amount: r2(retainers + vat), day, month, ref: `FEE-${ym}`, memo: 'Retainers and briefs from clients in the region (standard-rated)', flow: 'exports', fromAccount: '5370', toAccount: '4050', toExtra: [{ account: '2230', credit: vat }] });
     }
-    // Ithemba's firms brief the regional chambers at the centre.
-    const clientCity = prac.city === 'unity' ? 'ithemba' : prac.city;
-    for (const client of businessesIn(clientCity, ['market', 'shop', 'farm', 'office', 'combank', 'mall'])) {
+    // Each chambers briefs its own city's firms (the province's regional chambers at the centre take Ithemba's).
+    for (const client of (prac.clientCities ?? [prac.city]).flatMap((c) => businessesIn(c, ['market', 'shop', 'farm', 'office', 'combank', 'mall']))) {
       if (!F.ledgers.books[client.id] || !client.vatRegistered) continue;
       const feeExcl = r2((client.kind === 'shop' ? 1_500 : 2_500) * cpiF);
       const vat = r2(feeExcl * T.vatRate);
@@ -1353,9 +1365,9 @@ function businessMonth(ctx: Ctx, F: FinanceState, month: number, budgets: Budget
   // ── The commercial banks: service fees from their city's firms, the public purse and the Mutual Bank ──
   for (const cb of BUSINESSES.filter((b) => b.kind === 'combank')) {
     if (!F.ledgers.books[cb.id]) continue;
-    const clientCities = cb.city === 'emmaus' ? ['emmaus', 'ithemba', 'unity'] : [cb.city];
+    const clientCities = cb.clientCities ?? [cb.city];
     for (const city of clientCities) {
-      for (const client of businessesIn(city as 'emmaus', ['market', 'shop', 'farm', 'office', 'practice', 'mall'])) {
+      for (const client of businessesIn(city, ['market', 'shop', 'farm', 'office', 'practice', 'mall'])) {
         if (!F.ledgers.books[client.id] || !client.vatRegistered) continue;
         const feeExcl = r2(600 * cpiF);
         const vat = r2(feeExcl * T.vatRate);
@@ -1379,8 +1391,9 @@ function businessMonth(ctx: Ctx, F: FinanceState, month: number, budgets: Budget
   // ── The farms: Emmaus's clears through the produce market; the others sell under contract ──
   for (const farm of BUSINESSES.filter((b) => b.kind === 'farm')) {
     if (!F.ledgers.books[farm.id]) continue;
+    // The produce market's own farm clears through it; the others sell under contract.
     let output = market.outputValue;
-    if (farm.id !== 'farm') {
+    if (farm.id !== activeAtlas().produceFarm || !activeAtlas().produceMarket) {
       const farmer = staffAt('farmer', farm.id) > 0;
       const hands = staffAt('farmhand', farm.id);
       const capacity = ((farmer ? farm.outputBase ?? 40_000 : (farm.outputBase ?? 40_000) * 0.5) + (farm.outputPerHand ?? 18_000) * hands) * cpiF;
@@ -1402,7 +1415,7 @@ function businessMonth(ctx: Ctx, F: FinanceState, month: number, budgets: Budget
   // ── The workshops (turnover-tax micro businesses, not VAT registered) ──
   for (const ws of BUSINESSES.filter((b) => b.kind === 'workshop')) {
     if (!F.ledgers.books[ws.id]) continue;
-    const office = businessesIn(ws.city, ['office']).find((o) => o.id !== 'towers');
+    const office = businessesIn(ws.city, ['office']).find((o) => !o.corporate);
     if (office && F.ledgers.books[office.id]) pay(F, { from: office.id, to: ws.id, amount: r2(5_000 * cpiF), day, month, ref: `MAINT-${ym}`, memo: `Maintenance contract with ${F.entities[office.id].name}`, flow: 'purchases', fromAccount: '5260', toAccount: '4050' });
     const builders = staffAt('builder', ws.id);
     const external = r2(builders * rng.range(8_000, 24_000) * cpiF);
@@ -1421,12 +1434,12 @@ function businessMonth(ctx: Ctx, F: FinanceState, month: number, budgets: Budget
   for (const of of BUSINESSES.filter((b) => b.kind === 'office')) {
     if (!F.ledgers.books[of.id]) continue;
     const wages = payroll.byEmployer[of.id]?.gross ?? 0;
-    const base = of.id === 'towers' ? 30_000 : of.id === 'it-office' ? 4_000 : 8_000;
+    const base = of.fees ?? 8_000;
     const excl = r2(1.18 * wages + base * cpiF);
     const vat = r2(excl * T.vatRate);
-    pay(F, { from: ROW, to: of.id, amount: r2(excl + vat), day, month, ref: `INV-${ym}`, memo: of.id === 'it-office' ? 'Grant income and services invoiced (standard-rated)' : 'Services invoiced to clients in the region (standard-rated)', flow: 'exports', fromAccount: '5370', toAccount: '4040', toExtra: [{ account: '2230', credit: vat }] });
-    const admin = r2((of.id === 'towers' ? 18_000 : 6_000) * cpiF);
-    const util = r2((of.id === 'towers' ? 10_000 : 4_000) * cpiF);
+    pay(F, { from: ROW, to: of.id, amount: r2(excl + vat), day, month, ref: `INV-${ym}`, memo: of.invoiceMemo ?? 'Services invoiced to clients in the region (standard-rated)', flow: 'exports', fromAccount: '5370', toAccount: '4040', toExtra: [{ account: '2230', credit: vat }] });
+    const admin = r2((of.admin ?? 6_000) * cpiF);
+    const util = r2((of.utilities ?? 4_000) * cpiF);
     const capex = deposits(F, of.id) > 0 ? r2(0.02 * excl) : 0;
     payBatch(F, of.id, day, month, `PUR-${ym}`, 'Office running costs and equipment', [
       { to: ROW, amount: admin, fromAccount: '5320', toAccount: '4040', fromExtra: vatInput(admin, T), flow: 'imports' },
@@ -1468,7 +1481,7 @@ function churchMonth(ctx: Ctx, F: FinanceState, month: number, hhs: Household[],
       { to: ROW, amount: util.excl + other.excl + ministry.excl, fromAccount: '5270', toAccount: '4040', flow: 'imports' },
       { to: GOV, amount: util.vat + other.vat + ministry.vat, fromAccount: '5270', toAccount: '4132', flow: 'tax' },
       { to: ROW, amount: r2(0.1 * tithes), fromAccount: '5140', toAccount: '4900', flow: 'transfer' },
-      { to: landmark(world.buildings[cong.id]?.community, 'workshop'), amount: r2(0.03 * tithes), fromAccount: '5260', toAccount: '4050', flow: 'purchases' },
+      { to: bookOr(landmark(world.buildings[cong.id]?.community, 'workshop')), amount: r2(0.03 * tithes), fromAccount: '5260', toAccount: '4050', flow: 'purchases' },
     ], 'purchases');
     totals.vat += util.vat + other.vat + ministry.vat;
     // Benevolence: each diaconal fund helps its own congregation's households in hardship.

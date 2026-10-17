@@ -162,7 +162,7 @@ loadHumans().then((kit) => {
       [{ sex: 'F', age: 10, height: 1.38, hair: 'ponytail01', crop: 0 }, [W('skirt_knee', '#1F3B6E'), W('f_blouse', '#F4F3EF'), W('shoes04')]],
       [{ sex: 'F', age: 45, weight: 0.7 }, [W('skirt_long', '#6A2E3E'), W('f_blouse', '#6A2E3E'), W('hat_wrap', '#D9A62E', '#D9A62E'), W('shoes01')]],
       [{ sex: 'M', age: 50 }, [W('m_trousers', '#1D1D22'), W('m_suit', '#1D1D22', '#F4F3EF', '#6A2E3E'), W('shoes04')]],
-      [{ sex: 'M', age: 38 }, [W('m_trousers', '#5B6068'), W('m_shirt', '#9DB9D6'), W('coat', '#FBFBF8'), W('shoes04')]],
+      [{ sex: 'M', age: 38 }, [W('m_trousers', '#5B6068'), W('m_shirt', '#9DB9D6'), W('coat', '#FBFBF8'), W('m_jacket', '#FBFBF8'), W('shoes04')]],
       [{ sex: 'M', age: 30, muscle: 0.8 }, [W('m_worktee', '#F4F3EF'), W('m_overalls', '#3A4A62'), W('hat_hard', '#F7C948', '#F7C948'), W('shoes03')]],
       [{ sex: 'M', age: 34 }, [W('m_trousers', '#1F2A44'), W('m_shirt', '#2E4C8F'), W('hat_cap', '#1F2A44', '#101522'), W('shoes03')]],
       [{ sex: 'M', age: 60, recede: 0.6, hairColor: '#8A8580' }, [W('m_jeans', '#5E7A46'), W('m_overalls', '#5E7A46'), W('hat_straw', '#D8B96A', '#6A4A2A'), W('shoes03')]],
@@ -187,6 +187,29 @@ loadHumans().then((kit) => {
       add(look(i, { ...o, sex: 'F', hair: i === 0 ? 'bob02' : i === 3 ? 'braid01' : i === 4 ? 'ponytail01' : 'long01', crop: 0, height: 1.62, eyes: o.eyes }), { base: 'stand' }, (i - 2) * 0.55, 0);
       add(look(i + 7, { ...o, sex: 'M', hair: i === 0 ? null : 'short02', crop: i === 0 ? 1 : 0, height: 1.72, beard: light ? 0.2 : 0.4 }), { base: 'stand' }, (i - 2) * 0.55, -0.9);
     });
+  } else if (scene === 'fit') {
+    // One outfit on a woman and a man (or ?sex=F|M), standing, walking and sitting: ?wear=f_blouse,f_jeans,shoes01
+    // (colours by position, or id:#hex), ?weight=0.8, ?age=40, ?act=stand,walk,sit.
+    const wear = (q.get('wear') ?? 'f_tee,f_jeans,shoes05').split(',').map((s, i) => {
+      const [id, ...cols] = s.split(':');
+      return { id, colors: cols.length ? cols : [TOPS[i % TOPS.length], BOTTOMS[i % BOTTOMS.length]] };
+    });
+    const sexes = (q.get('sex') ?? 'F,M').split(',') as Array<'F' | 'M'>;
+    const acts = (q.get('act') ?? 'stand,walk,sit').split(',');
+    let n = 0;
+    for (const sex of sexes) {
+      for (const a of acts) {
+        const act: Partial<Act> = a === 'walk' ? { base: 'walk', speed: 1.3, simSpeed: 1.3 } : a === 'sit' ? { base: 'sit', seat: 0.46 } : { base: 'stand' };
+        const f = add(look(n, { sex, wear, weight: Number(q.get('weight') ?? 0.5), age: Number(q.get('age') ?? 35), hair: sex === 'F' ? 'bob02' : null, crop: sex === 'F' ? 0 : 1 }), act, (n - (sexes.length * acts.length - 1) / 2) * sp);
+        // ?arms=relaxed|crossed|pockets|behind|akimbo|clasped|phone holds that habit.
+        if (q.get('arms')) {
+          (f.m as any).arms = q.get('arms');
+          (f.m as any).armsUntil = 1e9;
+          (f.m as any).fidgetAt = 1e9;
+        }
+        n++;
+      }
+    }
   } else if (scene === 'looks') {
     (['short01', 'short02', 'short03', 'short04', 'afro01', 'bob01', 'bob02', 'braid01', 'long01', 'ponytail01'] as const).forEach((hs, i) =>
       add(look(i, { hair: hs, crop: 0, sex: i >= 5 ? 'F' : 'M', height: i >= 5 ? 1.64 : 1.76 }), { base: 'stand' }, (i - 4.5) * 0.8),
@@ -205,6 +228,18 @@ loadHumans().then((kit) => {
 const n = () => Math.max(1, figs.length);
 function place(): void {
   const span = (scene === 'looks' ? 6.5 : scene === 'talk' ? 2.6 : scene === 'ages' ? 6 : scene === 'faces' ? 2.8 : scene === 'wardrobe' ? 5.5 : scene === 'heritage' ? 2.9 : figs.length * 1.1 + 0.6) / Number(q.get('zoom') ?? 1);
+  if (q.get('orbit')) {
+    // Round the figure chosen by ?fig, at ?d metres, ?orbit degrees from the front, looking at ?y.
+    const f = figs[Number(q.get('fig') ?? 0)];
+    const x = f ? f.h.root.position.x : 0;
+    const z = f ? f.h.root.position.z : 0;
+    const a = (Number(q.get('orbit')) * Math.PI) / 180;
+    const d = Number(q.get('d') ?? 1.2);
+    const y = Number(q.get('y') ?? 1.0);
+    cam.position.set(x + Math.sin(a) * d, y + Number(q.get('dy') ?? 0.1), z + Math.cos(a) * d);
+    cam.lookAt(x, y, z);
+    return;
+  }
   if (view === 'three') {
     cam.position.set(span * 0.75, 1.35, span * 1.0);
     cam.lookAt(0, 0.85, 0);

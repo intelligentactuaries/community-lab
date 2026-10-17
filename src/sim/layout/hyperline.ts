@@ -9,6 +9,8 @@
 // settlement is a short walk from the line; the Airport station is across
 // Terminal Drive from the terminal.
 
+import type { StationSpec } from '../atlas';
+import { cumulative, distanceAlong } from '../track';
 import type { Building } from '../types';
 import { station } from './builders';
 
@@ -25,17 +27,6 @@ export const TRACK: Array<{ x: number; y: number }> = [
   { x: 3330, y: 560 }, // Newhaven terminus buffer
 ];
 
-export interface StationSpec {
-  /** Building id. */
-  id: string;
-  name: string;
-  /** Where the train draws up, on the guideway beside the platform. */
-  x: number;
-  y: number;
-  /** Distance along the guideway from its western end (filled in below). */
-  t: number;
-}
-
 /** Stations in line order, west to east to north. */
 export const STATIONS: StationSpec[] = [
   { id: 'st-emmaus', name: 'Emmaus', x: 950, y: 690, t: 0 },
@@ -45,52 +36,10 @@ export const STATIONS: StationSpec[] = [
   { id: 'st-newhaven', name: 'Newhaven', x: 3330, y: 606, t: 0 },
 ];
 
-/** Cumulative length at each vertex of the track. */
-export const TRACK_CUM: number[] = TRACK.map((_, i) => {
-  let l = 0;
-  for (let k = 1; k <= i; k++) l += Math.hypot(TRACK[k].x - TRACK[k - 1].x, TRACK[k].y - TRACK[k - 1].y);
-  return l;
-});
-export const TRACK_LENGTH = TRACK_CUM[TRACK_CUM.length - 1];
-
-/** Distance along the track of a point that lies on it (the nearest point is used, so a metre off the rail is fine). */
-export function trackDistanceOf(x: number, y: number): number {
-  let best = 0;
-  let bd = Infinity;
-  for (let i = 1; i < TRACK.length; i++) {
-    const a = TRACK[i - 1];
-    const b = TRACK[i];
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const len2 = dx * dx + dy * dy;
-    const u = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len2));
-    const px = a.x + u * dx;
-    const py = a.y + u * dy;
-    const d = Math.hypot(px - x, py - y);
-    if (d < bd) {
-      bd = d;
-      best = TRACK_CUM[i - 1] + u * Math.sqrt(len2);
-    }
-  }
-  return best;
+{
+  const cum = cumulative(TRACK);
+  for (const s of STATIONS) s.t = distanceAlong(TRACK, cum, s.x, s.y);
 }
-
-/** The point and heading on the track at distance `s` from its western end. */
-export function trackPoint(s: number): { x: number; y: number; heading: number } {
-  const t = Math.max(0, Math.min(TRACK_LENGTH, s));
-  for (let i = 1; i < TRACK.length; i++) {
-    if (t <= TRACK_CUM[i] || i === TRACK.length - 1) {
-      const a = TRACK[i - 1];
-      const b = TRACK[i];
-      const seg = TRACK_CUM[i] - TRACK_CUM[i - 1];
-      const u = seg > 0 ? (t - TRACK_CUM[i - 1]) / seg : 0;
-      return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, heading: Math.atan2(b.y - a.y, b.x - a.x) };
-    }
-  }
-  return { x: TRACK[0].x, y: TRACK[0].y, heading: 0 };
-}
-
-for (const s of STATIONS) s.t = trackDistanceOf(s.x, s.y);
 
 /** The four stations in the cities and the centre (the Airport's is built with the airfield). */
 export function hyperlineBuildings(): Record<string, Building> {

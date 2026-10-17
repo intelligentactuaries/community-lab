@@ -4,6 +4,7 @@
 // the provenance of every default.
 
 import type { MortalityOverride, Shock } from '../shared/exchange';
+import type { WorldPlan } from './plan/types';
 import { hash32 } from './rng';
 import type { Tier } from './types';
 
@@ -173,6 +174,12 @@ export interface ScenarioParams {
   mortalityOverride?: MortalityOverride;
   /** Timed shocks — a pandemic year, a rate stress, an oil spike (shocks.ts). Absent unless supplied. */
   shocks?: Shock[];
+  /**
+   * The world to run: a plan made in the Community Builder. Absent (or null),
+   * the run is the built-in Unity Province. The plan's own hash, not its text,
+   * enters the basis hash.
+   */
+  plan?: WorldPlan | null;
 }
 
 export const DEFAULT_PARAMS: ScenarioParams = {
@@ -335,17 +342,23 @@ const NOT_ASSUMPTIONS = new Set<keyof ScenarioParams>(['seed', 'placeName', 'reg
 
 /**
  * Fingerprint of the assumptions alone: basisHash without the seed and the cosmetic fields. Every seed of one basis
- * shares it, so a Monte Carlo export, or Scelo, can tell which runs may be pooled.
+ * shares it, so a Monte Carlo export, or Scelo, can tell which runs may be pooled. Runs pool only within one world:
+ * `worldHash` is the world's fingerprint, as for basisHash (a Simulation's `atlas.hash`).
  */
-export function assumptionsHash(p: ScenarioParams): string {
+export function assumptionsHash(p: ScenarioParams, worldHash = ''): string {
   const rest = Object.fromEntries(Object.entries(p).filter(([k]) => !NOT_ASSUMPTIONS.has(k as keyof ScenarioParams)));
-  return basisHash(rest as unknown as ScenarioParams);
+  return basisHash(rest as unknown as ScenarioParams, worldHash);
 }
 
-/** Stable fingerprint of the basis — printed on every export like Scelo's "tables carry their hash". */
-export function basisHash(p: ScenarioParams): string {
-  const keys = Object.keys(p).sort();
-  const canon = keys.map((k) => `${k}=${JSON.stringify((p as unknown as Record<string, unknown>)[k])}`).join('|');
+/**
+ * Stable fingerprint of the basis — printed on every export like Scelo's
+ * "tables carry their hash". `worldHash` is the plan's fingerprint ('' for the
+ * built-in province, whose runs keep the hashes they always had).
+ */
+export function basisHash(p: ScenarioParams, worldHash = ''): string {
+  const keys = Object.keys(p).filter((k) => k !== 'plan').sort();
+  let canon = keys.map((k) => `${k}=${JSON.stringify((p as unknown as Record<string, unknown>)[k])}`).join('|');
+  if (worldHash) canon += `|world=${worldHash}`;
   const h1 = hash32(canon);
   const h2 = hash32(canon + '#2');
   return (h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0')).slice(0, 12);

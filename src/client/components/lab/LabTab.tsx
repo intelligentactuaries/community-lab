@@ -18,6 +18,7 @@ import { chartTheme } from '../../charts/theme';
 import { lab, useLab } from '../../lib/lab';
 import { saveExperimentToWorkspace, useWorkspace } from '../../workbench/workspace';
 import { downloadText } from './ExportsTab';
+import { isProvince, wholeName } from '../../lib/worldNames';
 
 const AUDIENCES: Array<{ id: 'actuarial' | 'government' | 'social'; label: string }> = [
   { id: 'actuarial', label: 'Actuaries' },
@@ -139,8 +140,8 @@ export function LabTab() {
         <div className="row wrap">
           <label className="row small">Seeds <input className="lab-num" type="number" min={2} max={64} value={d.seeds} onChange={(e) => lab.setDraft({ seeds: Math.max(2, Math.min(64, Math.round(Number(e.target.value)))) })} /></label>
           <label className="row small">Years <input className="lab-num" type="number" min={1} max={40} value={d.years} onChange={(e) => lab.setDraft({ years: Math.max(1, Math.min(40, Math.round(Number(e.target.value)))) })} /></label>
-          <label className="row small" title="Start every arm from this province's own parameters (as changed in the Scenario panel) rather than the defaults">
-            <input type="checkbox" checked={d.fromProvince} onChange={(e) => lab.setDraft({ fromProvince: e.target.checked })} /> from this province's basis
+          <label className="row small" title={isProvince() ? "Start every arm from this province's own parameters (as changed in the Scenario panel) rather than the defaults" : `Run every arm in ${wholeName()}, on its own parameters (as changed in the Scenario panel); unticked, the arms run in the built-in province on the defaults`}>
+            <input type="checkbox" checked={d.fromProvince} onChange={(e) => lab.setDraft({ fromProvince: e.target.checked })} /> {isProvince() ? "from this province's basis" : `in ${wholeName()}, on its basis`}
           </label>
           <span className="grow" />
           {running ? (

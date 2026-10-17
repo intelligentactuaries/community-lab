@@ -10,10 +10,15 @@ import * as THREE from 'three';
 /** The arms' angle from the sides in the rest pose (motion.ts relies on it). */
 export const A_POSE = (30 * Math.PI) / 180;
 /** The legs' angle from vertical. */
-const LEG_OUT = (2 * Math.PI) / 180;
+export const LEG_OUT = (2 * Math.PI) / 180;
 const D = Math.PI / 180;
-/** A relaxed hand: each finger's three joints (knuckle, middle, tip), degrees; the thumb first. */
-const CURL: Record<number, [number, number, number]> = { 1: [6, 12, 10], 2: [14, 24, 12], 3: [18, 30, 14], 4: [22, 34, 16], 5: [26, 38, 18] };
+/** A relaxed hand: each finger's three joints (knuckle, middle, tip), degrees, curling a little more toward the little finger; the thumb first. */
+const CURL: Record<number, [number, number, number]> = { 1: [0, 6, 10], 2: [16, 26, 14], 3: [20, 32, 16], 4: [22, 34, 17], 5: [24, 36, 18] };
+/**
+ * MakeHuman models the hand with its fingers spread and the thumb out to the side; at rest they lie together: how much
+ * of each finger's angle from the middle finger (the thumb's from the index) is closed, in the palm's plane.
+ */
+const TOGETHER: Record<number, number> = { 1: 0.65, 2: 0.6, 4: 0.6, 5: 0.55 };
 
 export interface Rest {
   /** Per bone: 3×4 matrices (row-major rotation | translation) taking the modelled pose to the rest pose. */
@@ -26,6 +31,9 @@ const qa = new THREE.Quaternion();
 const va = new THREE.Vector3();
 const vb = new THREE.Vector3();
 const vc = new THREE.Vector3();
+const vd = new THREE.Vector3();
+const ve = new THREE.Vector3();
+const vf = new THREE.Vector3();
 
 /**
  * The rotations that take a body from MakeHuman's pose to the rest pose, bone by bone (world rotations
@@ -87,10 +95,35 @@ export function restPose(names: string[], parents: number[], points: string[], j
     } else if (/^f\d\d$/.test(base)) {
       const f = Number(base[1]);
       const k = Number(base[2]);
+      const handR = R[at.get(`hand${s}`)!];
+      if (k === 1 && TOGETHER[f]) {
+        // Drawn in beside its neighbour: turned about the back of the hand toward the middle finger's line; the thumb,
+        // which stands out from the palm as well as to the side, straight toward the index finger.
+        const back = vd.copy(dorsal0[s]).applyQuaternion(handR);
+        const own = Jn(`f${f}2${s}`, ve).sub(Jn(name, vb)).normalize().applyQuaternion(q);
+        const ref = f === 1 ? 2 : 3;
+        const to = Jn(`f${ref}2${s}`, vf).sub(Jn(`f${ref}1${s}`, vb)).normalize().applyQuaternion(handR);
+        if (f === 1) {
+          const axis = vb.copy(own).cross(to);
+          if (axis.lengthSq() > 1e-8) {
+            qa.setFromAxisAngle(axis.normalize(), own.angleTo(to) * TOGETHER[f]);
+            q.premultiply(qa);
+          }
+        }
+        own.addScaledVector(back, -own.dot(back));
+        to.addScaledVector(back, -to.dot(back));
+        if (f !== 1 && own.lengthSq() > 1e-8 && to.lengthSq() > 1e-8) {
+          own.normalize();
+          to.normalize();
+          const ang = Math.atan2(vb.copy(own).cross(to).dot(back), own.dot(to));
+          qa.setFromAxisAngle(back, ang * TOGETHER[f]);
+          q.premultiply(qa);
+        }
+      }
       const dir = (k < 3 ? Jn(`f${f}${k + 1}${s}`, va) : Pn(`tip${f}${s}`, va)).sub(Jn(name, vb));
       dir.normalize().applyQuaternion(q);
       // Toward the palm, as the hand now lies.
-      const volar = vb.copy(dorsal0[s]).applyQuaternion(R[at.get(`hand${s}`)!]).negate();
+      const volar = vb.copy(dorsal0[s]).applyQuaternion(handR).negate();
       const axis = vc.copy(dir).cross(volar);
       if (axis.lengthSq() > 1e-10) {
         qa.setFromAxisAngle(axis.normalize(), CURL[f][k - 1] * D);

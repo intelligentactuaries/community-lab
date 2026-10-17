@@ -39,7 +39,7 @@ describe('the region', () => {
   });
   test('every settlement has what it needs, and only the church-going cities have churches', () => {
     for (const c of COMMUNITIES) {
-      for (const k of ['shop', 'bank', 'park', 'busstop', 'school', 'clinic', 'police', 'court', 'council', 'medical', 'cemetery', 'hall', 'taxi', 'workshop', 'office', 'farm'] as const) expect(b[landmark(c.id, k)]).toBeDefined();
+      for (const k of ['shop', 'bank', 'park', 'busstop', 'school', 'clinic', 'police', 'court', 'council', 'medical', 'cemetery', 'hall', 'taxi', 'workshop', 'office', 'farm'] as const) expect(b[landmark(c.id, k)!]).toBeDefined();
       const church = landmark(c.id, 'church');
       const city = CITIES.find((k) => k.id === c.city)!;
       if (c.tier === 'civic') continue;

@@ -7,6 +7,8 @@
 import type { ParamPatch, ParamValue } from '../shared/exchange';
 import { MORTALITY_PRESETS } from './mortality';
 import { DEFAULT_PARAMS, type EducationMix, type ScenarioParams } from './params';
+import { planHash } from './plan/hash';
+import type { WorldPlan } from './plan/types';
 
 /** Ranges for numeric fields: the Scenario panel's sliders, and the finance block's plausible bounds. */
 export const PARAM_RANGES: Partial<Record<keyof ScenarioParams, [number, number]>> = {
@@ -176,6 +178,13 @@ function patchTiers(params: Partial<ScenarioParams>, v: ParamValue, applied: str
 }
 
 /** The fields of `p` that differ from the defaults (the outside inputs included) — what a provenance records. */
+/** What a run changes from the defaults, for an export's provenance: a built world by its name and fingerprint, not its whole plan. */
+export function provenanceChanges(p: Partial<ScenarioParams>): Record<string, unknown> {
+  const { plan, ...rest } = changedFromDefaults(p);
+  const world = plan as WorldPlan | null | undefined;
+  return world ? { ...rest, world: `${world.name} (${planHash(world)})` } : rest;
+}
+
 export function changedFromDefaults(p: Partial<ScenarioParams>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(p)) {

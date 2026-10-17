@@ -30,6 +30,18 @@ drawer; the Monte Carlo tab reports (a) and (b) across seeds.
 
 ## 2. Entities, state variables and scales
 
+**The world.** The space the agents live in is an *atlas* (`src/sim/atlas.ts`):
+cities and their settlements (each with a wealth tier), the road network, the
+buildings with their rooms and furniture, what each building is for (the
+landmarks each settlement and city uses), the posts each workplace cannot
+leave empty, the businesses that keep books, the bus lines, the Hyperline and
+the airport. The default atlas is the built-in Unity Province
+(`src/sim/layout/province.ts`); a world drawn in the Community Builder is a
+*plan* (`src/sim/plan/`) from which an atlas is derived by stated rules
+(`docs/ASSUMPTIONS.md`, "Worlds built in the Community Builder"). Every
+process below reads the atlas of the run it belongs to, so the same model runs
+on any world; the plan's hash is part of the run's basis hash.
+
 * **Persons** — id, names, sex, birth day, age, life stage, household, Big Five
   vector, archetype/shape, education, schooling, job and workplace, income,
   marital status and partner, parents/children, health (state, vitality,
@@ -183,6 +195,13 @@ motion, detection and response.
   closed-group liability.
 
 ## 5. Initialisation
+
+The world is built first: the run's atlas is installed and its buildings laid
+out (for a built world, after its plan passes the checks in
+`src/sim/plan/validate.ts`: homes in a residential settlement, a shop, roads to
+every door, one connected network, no overlaps). Each settlement seats its
+households in its stated order (by default every other plot first, four houses
+in five).
 
 Households are composed by type (family, couple, single parent,
 multigenerational, elderly, single) with weights from the chosen age profile;

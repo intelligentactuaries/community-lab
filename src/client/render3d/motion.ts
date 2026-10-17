@@ -12,6 +12,7 @@
 // unrotated (the modelled A-pose), so a bone's rotation is in the figure's
 // frame: x bends forward and back, y turns, z tilts sideways.
 import * as THREE from 'three';
+import { LEG_OUT } from './body/rest';
 import type { Human } from './humans';
 
 export type Base = 'stand' | 'walk' | 'sit' | 'lie' | 'drive';
@@ -185,6 +186,8 @@ export class Motion {
   private fidgetT = 0;
   private rate = 8;
   private onFeet = true;
+  /** What the hands hold this frame (a phone, in the right). */
+  private prop: 'phone' | null = null;
   /** The pelvis turns about the vertical first (walking); lying, it tips back first and then rolls onto a side. */
   private hipOrder: THREE.EulerOrder = 'YXZ';
   private tq = new THREE.Quaternion();
@@ -199,11 +202,15 @@ export class Motion {
     this.weight = this.weightTarget;
   }
 
-  /** Pose the skeleton for this frame. */
-  update(t: number, dt: number, a: Act): void {
+  /**
+   * Pose the skeleton for this frame: dt the time since the pose was last worked out, easeDt since the bones last eased
+   * toward it (less when the frames between eased them, see ease).
+   */
+  update(t: number, dt: number, a: Act, easeDt = dt): void {
     this.rx.fill(0);
     this.ry.fill(0);
     this.rz.fill(0);
+    this.prop = null;
     this.hipX = 0;
     this.hipZ = 0;
     this.hipOrder = 'YXZ';
@@ -245,7 +252,8 @@ export class Motion {
     this.gaze(t, dt, a);
     this.face(t, dt, a);
     this.rate += (rate - this.rate) * Math.min(1, dt * 3);
-    this.apply(dt);
+    this.apply(easeDt);
+    this.human.setProp(this.prop);
   }
 
   /**
@@ -269,9 +277,10 @@ export class Motion {
   /**
    * Put a hand on a point: target and elbow direction relative to the shoulders (between them, figure
    * axes: x left, y up, z forward, metres for an adult). Two-bone IK solved in the collarbone's frame, so
-   * the reach follows the torso; the upper arm is turned so the elbow bends on its own hinge.
+   * the reach follows the torso; the upper arm is turned so the elbow bends on its own hinge. supinate turns
+   * the forearm about its length, the palm toward the face (negative: down).
    */
-  private reach(side: 1 | -1, tx: number, ty: number, tz: number, px: number, py: number, pz: number, k = 1): void {
+  private reach(side: 1 | -1, tx: number, ty: number, tz: number, px: number, py: number, pz: number, k = 1, supinate = 0): void {
     const ik = this.human.arms;
     if (!ik) return;
     const r = side > 0 ? ik.L : ik.R;
@@ -303,9 +312,10 @@ export class Motion {
     ikM1.makeBasis(r.a1, r.h, tmpD.copy(r.a1).cross(r.h));
     ikM2.makeBasis(a1n, h1, tmpE.copy(a1n).cross(h1));
     ikQ1.setFromRotationMatrix(ikM2.multiply(ikM1.transpose()));
-    // Forearm: in the upper arm's frame, from its rest direction to the new one.
+    // Forearm: in the upper arm's frame, from its rest direction to the new one (turned about its own length first).
     tmpF.copy(a2n).applyQuaternion(ikQ1inv.copy(ikQ1).invert());
     ikQ2.setFromUnitVectors(r.a2, tmpF);
+    if (supinate) ikQ2.multiply(ikQ1inv.setFromAxisAngle(r.a2, -side * supinate));
     const [up, fore] = side > 0 ? [B.upL, B.foreL] : [B.upR, B.foreR];
     this.te.setFromQuaternion(ikQ1, 'XYZ');
     this.rx[up] += (this.te.x - this.rx[up]) * k;
@@ -317,10 +327,28 @@ export class Motion {
     this.rz[fore] += (this.te.z - this.rz[fore]) * k;
   }
 
+  /**
+   * The arms hanging relaxed: a little forward, the elbows a little bent, the palms toward the thighs (thumbs forward),
+   * and out from the sides just enough that the hands come by the hips, however broad they are, rather than into them.
+   */
   private armsDown(): void {
     const e = this.style.elbow;
-    this.arm(1, 0.03, 0.07, 0.35, e, 1, 0.3);
-    this.arm(-1, 0.03, 0.07, 0.35, e, 1, 0.3);
+    const abd = this.hangOut();
+    this.arm(1, 0.05, abd, 0.12, e, 1, 0.08);
+    this.arm(-1, 0.05, abd, 0.12, e, 1, 0.08);
+  }
+
+  /** How far out from hanging straight down a relaxed arm hangs (radians): the hand a couple of centimetres clear of the hips. */
+  private hangOut(): number {
+    const h = this.human;
+    const ik = h.arms;
+    if (!ik) return 0.08;
+    const sx = Math.abs(ik.L.clav.x + ik.L.s.x);
+    const reach = ik.L.l1 + ik.L.l2 + 0.05 * h.armScale;
+    // The hand's middle this far out from the hips' widest: its own half thickness, the fingers curled in toward the
+    // thigh, and a little air.
+    const clear = h.legs.hipWidth + 0.05 * h.armScale;
+    return Math.asin(Math.max(0.03, Math.min(0.45, (clear - sx) / reach)));
   }
 
   // ── Locomotion ──
@@ -377,12 +405,16 @@ export class Motion {
     this.ry[B.chest] = -8 * D * c2 * amp;
     this.rx[B.spine] += (run ? 0.16 : 0.03 + 0.02 * a.speed);
     this.rz[B.spine] = Math.max(-0.15, Math.min(0.15, -a.turn * 0.08));
-    // Each arm swings with the opposite leg; the elbow bends more on the way forward.
+    // Each arm swings with the opposite leg, by the hips (however broad) rather than through them; the elbow bends more
+    // on the way forward.
     const swing = s.armSwing * (run ? 1.4 : 1) * amp;
     const elbow = run ? 1.45 : s.elbow + 0.12;
+    // (Further out than hanging still: the hips sway and turn into the hands' way with each step.)
+    const out = this.hangOut() + 0.08;
     for (const [side, ph] of [[1, p - 0.5], [-1, p]] as const) {
       const c = Math.cos(2 * Math.PI * ph);
-      this.arm(side, 0.04 + 18 * D * swing * c, run ? 0.22 : 0.08, run ? 0.5 : 0.35, elbow + 0.25 * Math.max(0, c) * swing, 1, 0.3);
+      // Further forward than back, as an arm swings.
+      this.arm(side, 0.04 + (c > 0 ? 20 : 11) * D * swing * c, run ? Math.max(0.22, out) : out, run ? 0.5 : 0.2, elbow + 0.25 * Math.max(0, c) * swing, 1, 0.15);
     }
     // The head stays steady: it undoes the chest's twist.
     this.ry[B.neck] = 6 * D * c2 * amp;
@@ -403,29 +435,37 @@ export class Motion {
     }
     this.weight += (this.weightTarget - this.weight) * Math.min(1, dt * 1.6);
     const w = this.weight;
-    // Contrapposto: the pelvis over the standing leg and dropping on the free side, the free knee bent.
-    this.hipX = 0.03 * w;
-    this.rz[B.hips] = -0.055 * w;
-    this.rz[B.spine] = 0.035 * w;
-    this.rz[B.chest] = 0.025 * w;
-    const free = w > 0 ? 'R' : 'L';
     const k = Math.abs(w);
-    const stand = s.stance;
-    this.rz[B.thighL] = stand * 0.12 + (w > 0 ? 0.055 : 0.02);
-    this.rz[B.thighR] = -stand * 0.12 - (w < 0 ? 0.055 : 0.02);
-    if (free === 'R') {
-      this.rx[B.thighR] = -0.12 * k;
-      this.rx[B.shinR] = 0.28 * k;
-      this.rx[B.footR] = -0.1 * k;
-      this.ry[B.thighR] = -0.15 * k;
-    } else {
-      this.rx[B.thighL] = -0.12 * k;
-      this.rx[B.shinL] = 0.28 * k;
-      this.rx[B.footL] = -0.1 * k;
-      this.ry[B.thighL] = 0.15 * k;
+    // Contrapposto: the pelvis shifted over the standing leg and dropping a little on the free side (the trunk
+    // straightening above it), the free knee eased and its foot a little forward and turned out.
+    this.hipX = 0.025 * w;
+    const tilt = -0.04 * w;
+    this.rz[B.hips] = tilt;
+    this.rz[B.spine] = 0.025 * w;
+    this.rz[B.chest] = 0.02 * w;
+    // The feet stay where they stand, about a hip's width apart as in the rest pose (a little wider for some): each leg
+    // angled from its hip joint to its foot as the pelvis shifts and tilts, the sole kept flat.
+    const L = h.legs;
+    const len = L.thigh + L.shin;
+    const half = L.footX + s.stance * 0.03;
+    for (const side of [1, -1] as const) {
+      const [thigh, shin, foot] = side > 0 ? [B.thighL, B.shinL, B.footL] : [B.thighR, B.shinR, B.footR];
+      const free = side * w < 0 ? k : 0;
+      const jx = this.hipX + side * L.hipHalf * Math.cos(tilt);
+      const ang = Math.asin(Math.max(-0.4, Math.min(0.4, (side * (half + free * 0.02) - jx) / len)));
+      this.rz[thigh] = ang - side * LEG_OUT - tilt;
+      this.rz[foot] = -(ang - side * LEG_OUT);
+      this.rx[thigh] = -0.1 * free;
+      this.rx[shin] = 0.24 * free;
+      this.rx[foot] = -0.14 * free;
+      this.ry[thigh] = side * 0.12 * free;
     }
-    // The dropped hip lowers the pelvis a little.
-    this.hipY = h.hipY - 0.012 * k;
+    // The eased knee lowers the pelvis a little.
+    this.hipY = h.hipY - 0.01 * k;
+    // The hand on the side the hips shift to moves out with them (a habit below sets the arms anew).
+    const reach = h.arms ? h.arms.L.l1 + h.arms.L.l2 : 0.55;
+    if (this.hipX > 0) this.rz[B.upL] += this.hipX / reach;
+    else this.rz[B.upR] += this.hipX / reach;
     // A slow sway.
     this.rx[B.hips] += Math.sin(t * 0.6 + this.phase * 5) * 0.01;
     // A habit for the arms, changed now and then.
@@ -505,38 +545,58 @@ export class Motion {
     this.rx[B.head] += 0.35;
   }
 
+  /** Bend a hand at the wrist, toward its palm (negative: back), blended in by k. */
+  private wrist(side: 1 | -1, flex: number, k = 1): void {
+    const hand = side > 0 ? B.handL : B.handR;
+    this.rz[hand] += (-side * flex - this.rz[hand]) * k;
+  }
+
   /** The arms in one of the habits, blended in by k (0 leaves them as they were). */
   private armPose(style: ArmStyle, k: number): void {
+    // Hands in pockets want pockets (trousers, jeans, shorts): otherwise they are held together in front.
+    if (style === 'pockets' && !this.human.pockets) style = 'clasped';
     switch (style) {
       case 'crossed':
-        // Folded across the chest: each hand at the other arm, the left forearm over the right.
-        this.reach(1, -0.16, -0.17, 0.17, 0.4, -0.35, 0.25, k);
-        this.reach(-1, 0.15, -0.23, 0.14, -0.4, -0.4, 0.2, k);
+        // Folded across the chest below the bust, the left forearm over the right: each wrist past the middle and the
+        // hand bent round the other arm (the right one tucked under the left upper arm).
+        this.reach(1, -0.07, -0.22, 0.17, 0.6, -0.3, 0.1, k);
+        this.reach(-1, 0.05, -0.26, 0.16, -0.6, -0.35, 0.05, k);
+        this.wrist(1, 0.55, k);
+        this.wrist(-1, 0.6, k);
         break;
       case 'pockets':
-        this.reach(1, 0.2, -0.5, 0.06, 0.55, -0.25, -0.35, k);
-        this.reach(-1, -0.2, -0.5, 0.06, -0.55, -0.25, -0.35, k);
+        // Slid into the front pockets: the wrists at the front of the hips, the fingers in, the elbows out and back.
+        this.reach(1, 0.14, -0.53, 0.04, 0.6, -0.1, -0.3, k);
+        this.reach(-1, -0.14, -0.53, 0.04, -0.6, -0.1, -0.3, k);
         break;
       case 'behind':
         // Hands held together behind the back.
         this.reach(1, 0.03, -0.5, -0.2, 0.5, -0.3, -0.1, k);
         this.reach(-1, -0.03, -0.5, -0.2, -0.5, -0.3, -0.1, k);
         break;
-      case 'akimbo':
-        // Hands on the hips, elbows out to the sides.
-        this.reach(1, 0.19, -0.44, 0.02, 0.7, -0.2, -0.2, k);
-        this.reach(-1, -0.19, -0.44, 0.02, -0.7, -0.2, -0.2, k);
+      case 'akimbo': {
+        // Hands on the hips, elbows out to the sides: the wrists at the sides of the waist (however broad) and the
+        // hands bent back to lie on the hips, fingers forward, rather than into them.
+        const x = (this.human.legs.hipWidth * 0.92 + 0.045 * this.human.armScale) / this.human.armScale;
+        this.reach(1, x, -0.41, 0.0, 0.7, -0.2, -0.2, k);
+        this.reach(-1, -x, -0.41, 0.0, -0.7, -0.2, -0.2, k);
+        this.wrist(1, -0.9, k);
+        this.wrist(-1, -0.9, k);
         break;
+      }
       case 'clasped':
         // Hands together in front, at the waist.
         this.reach(1, 0.025, -0.44, 0.19, 0.5, -0.3, -0.2, k);
         this.reach(-1, -0.025, -0.44, 0.19, -0.5, -0.3, -0.2, k);
         break;
       case 'phone':
-        // A phone held in front of the chest, the head bent over it.
-        this.reach(-1, -0.05, -0.2, 0.32, -0.45, -0.5, -0.2, k);
+        // A phone in the right hand, held low in front of the chest: the elbow by the side, the forearm forward, the
+        // palm turned up toward the face; the head bent over it.
+        this.reach(-1, -0.12, -0.31, 0.27, -0.6, -0.6, -0.3, k, 1.25);
+        this.wrist(-1, -0.25, k);
         this.rx[B.head] += 0.42 * k;
         this.rx[B.neck] += 0.15 * k;
+        if (k > 0.5) this.prop = 'phone';
         break;
       default:
         break;
@@ -584,9 +644,18 @@ export class Motion {
       return;
     }
     // Hands resting on the thighs (a target within the arm's reach, so the elbows bend and the hands lie on the
-    // lap rather than the arms hanging straight into the seat), or at the desk, or folded in prayer.
-    this.reach(1, 0.11, -0.39, 0.2, 0.45, -0.4, -0.1);
-    this.reach(-1, -0.11, -0.39, 0.2, -0.45, -0.4, -0.1);
+    // lap rather than the arms hanging straight into the seat), or at the desk, or folded in prayer. Each hand lies on
+    // the top of its own thigh halfway along it (not in the dip between the thighs): the wrist over the thigh's line,
+    // the thigh's own thickness and the hand's above the hip joints' height, reckoned from the shoulders (which stand
+    // as far above the pelvis as they do standing).
+    // (The forearm near level, the hand bent back at the wrist to lie flat along the thigh.)
+    const shoulders = this.hipY + (h.arms ? h.arms.mid.y - h.hipY : 0.5 * (h.height / 1.7));
+    const lap = (seat + L.seat + L.thighHalf + h.lapCloth + 0.035 * h.armScale - shoulders) / h.armScale;
+    const along = 0.21;
+    const over = (L.hipHalf + L.thigh * 0.07 + 0.01) / h.armScale;
+    // (The forearms turned palm down.)
+    this.reach(1, over, lap, along, 0.45, -0.4, -0.1, 1, -1.3);
+    this.reach(-1, -over, lap, along, -0.45, -0.4, -0.1, 1, -1.3);
     if (a.activity === 'type' || a.activity === 'eat' || a.activity === 'read') {
       const tp = a.activity === 'type';
       const bob = (ph: number) => (tp ? Math.max(0, Math.sin(t * 13 + ph)) * 0.015 : 0);
@@ -612,20 +681,27 @@ export class Motion {
       return;
     }
     if (a.activity === 'phone') {
-      this.reach(-1, -0.05, -0.28, 0.3, -0.45, -0.5, -0.2);
+      this.reach(-1, -0.12, -0.29, 0.27, -0.6, -0.6, -0.3, 1, 1.25);
+      this.wrist(-1, -0.25);
       this.rx[B.head] += 0.42;
       this.rx[B.neck] += 0.15;
+      this.prop = 'phone';
       return;
     }
-    // Habits: leaning back, or forward with the elbows on the knees; legs crossed for some.
+    // Habits: leaning back, or forward with the elbows on the knees; legs crossed for some. (Hands left on the lap lie
+    // flat on it.)
     const habit = this.arms;
+    if (habit !== 'crossed' && habit !== 'akimbo') {
+      this.wrist(1, -0.4);
+      this.wrist(-1, -0.4);
+    }
     if (habit === 'crossed') this.armPose('crossed', 1);
     else if (habit === 'akimbo') {
-      // Leaning forward, forearms on the knees.
+      // Leaning forward, forearms on the knees and the hands hanging loose in front of them.
       this.rx[B.spine] = 0.3;
       this.rx[B.chest] = 0.1;
-      this.reach(1, 0.1, -0.44, 0.34, 0.45, -0.3, -0.2);
-      this.reach(-1, -0.1, -0.44, 0.34, -0.45, -0.3, -0.2);
+      this.reach(1, 0.09, -0.38, 0.5, 0.45, -0.3, -0.2);
+      this.reach(-1, -0.09, -0.38, 0.5, -0.45, -0.3, -0.2);
     } else if (habit === 'behind' || habit === 'pockets') {
       // Legs crossed at the knee.
       this.rx[B.thighR] = -hip - 0.12;
@@ -791,15 +867,15 @@ export class Motion {
     } else if (a.base === 'walk') {
       if (t > this.gazeAt) {
         this.gazeAt = t + this.rnd.range(2, 7) / s.restless;
-        this.gazeTarget = this.rnd.next() < 0.3 ? [this.rnd.range(-0.9, 0.9), this.rnd.range(-0.05, 0.15)] : [0, this.rnd.range(0.05, 0.2)];
+        this.gazeTarget = this.rnd.next() < 0.3 ? [this.rnd.range(-0.6, 0.6), this.rnd.range(-0.05, 0.15)] : [0, this.rnd.range(0.05, 0.2)];
       }
       [yaw, pitch] = this.gazeTarget;
       this.gazeDist = 0;
     } else if (a.base !== 'lie' && !a.sleeping) {
-      // Look about: a quick turn of the head, then a pause.
+      // Look about: a quick turn of the head, then a pause (a glance to the side, not over the shoulder).
       if (t > this.gazeAt) {
         this.gazeAt = t + this.rnd.range(1.5, 6) / s.restless;
-        this.gazeTarget = this.rnd.next() < 0.4 ? [0, this.rnd.range(-0.05, 0.1)] : [this.rnd.range(-1.0, 1.0), this.rnd.range(-0.15, 0.25)];
+        this.gazeTarget = this.rnd.next() < 0.4 ? [0, this.rnd.range(-0.05, 0.1)] : [this.rnd.range(-0.7, 0.7), this.rnd.range(-0.12, 0.2)];
         if (this.arms === 'phone' || a.activity === 'phone' || a.activity === 'type' || a.activity === 'read') this.gazeTarget = [this.rnd.range(-0.15, 0.15), 0];
       }
       [yaw, pitch] = this.gazeTarget;
@@ -875,6 +951,14 @@ export class Motion {
     hips.position.x += (this.hipX - hips.position.x) * k;
     hips.position.y += (this.hipY - hips.position.y) * k;
     hips.position.z += (this.hipZ - hips.position.z) * k;
+  }
+
+  /**
+   * On a frame the pose is not worked out anew (further off, the animator runs every few frames): carry on easing toward
+   * the last one, so a figure moves on smoothly between its updates rather than standing still and then jumping.
+   */
+  ease(dt: number): void {
+    this.apply(dt);
   }
 
   /** Jump straight to this frame's pose (a person just built, or teleported). */

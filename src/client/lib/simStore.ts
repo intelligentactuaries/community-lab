@@ -109,7 +109,14 @@ class SimStore {
     if (typeof ui.view3d === 'boolean') this.view3d = ui.view3d;
     if (ui.view === 'province' || ui.view === 'workbench') this.view = ui.view;
     setMaxZoom(this.view3d ? MAX_ZOOM_3D : MAX_ZOOM);
-    this.sim = new Simulation(this.params);
+    try {
+      this.sim = new Simulation(this.params);
+    } catch (e) {
+      // A world saved last time that no longer runs (an older plan format): back to the province.
+      console.warn('Community Lab: the saved world could not be built, so the province runs instead.', e);
+      this.params = { ...this.params, plan: null };
+      this.sim = new Simulation(this.params);
+    }
     this.startMs = parseStartDate(this.params.startDate);
     this.applySpeed();
   }
@@ -200,13 +207,16 @@ class SimStore {
 
   // ── scenario ──
   rebuild(params: Partial<ScenarioParams>): void {
-    this.params = { ...DEFAULT_PARAMS, ...params };
+    const next = { ...DEFAULT_PARAMS, ...params };
+    // Build first: a world that cannot run throws here and nothing changes.
+    const sim = new Simulation(next);
+    this.params = next;
     try {
       localStorage.setItem(LS_PARAMS, JSON.stringify(this.params));
     } catch {
-      /* ignore */
+      /* quota: a large world is not kept across reloads */
     }
-    this.sim = new Simulation(this.params);
+    this.sim = sim;
     this.startMs = parseStartDate(this.params.startDate);
     this.selection = null;
     this.followId = null;

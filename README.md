@@ -162,6 +162,62 @@ a Laffer curve. None of it clutters the village: two tiles open one workspace.
 
 <sub>The books. Any entity's journal, ledgers and statements; every entry carries the digest of the one before it, and the Audit section re-verifies the chain and checks that every trial balance balances, every balance sheet balances, every cash-flow statement reconciles and the bank's books agree with its members'.</sub>
 
+## Build your own community
+
+The province is one world; the **Community Builder** makes others. The **Build** button in the header opens it
+on a blank canvas, on **Masakhane** (a small town of about forty households in a village, a township and a
+hillside estate around a civic centre, to build on), on the built-in province itself (every building as
+drawn, to customise), on a world you saved, or on a `.sce` file someone shared.
+
+| | |
+|---|---|
+| <img src="docs/media/builder.png" alt="The Community Builder with Masakhane open: the asset library on the left (sets, roads and areas, homes), the tool rail, the drawing board with the Ubuntu, Hillside and Thembisa settlements and the civic centre, and the inspector on the right showing the selected church — its name, settlement, door, position and size, and what it will be in the simulation: the church for its settlement, its pastor filled first from the settlement, books kept as a PBO, R58 000 cash and R1.44m of property"> | <img src="docs/media/built-world.png" alt="Masakhane running: Sunday at 10:05 in the rain, the congregation in the pews of Masakhane Community Church, the school, clinic, police station, market and Mutual Bank along Ubuntu's high street, and the sports field, hall, cemetery, workshop, farm, co-op offices and taxi rank across the road"> |
+| <sub>Masakhane in the builder, its village church selected: the inspector says what the building will be in the simulation — whose church it is, which post is filled first and from where, and the books it opens with.</sub> | <sub>The same town running: its first Sunday morning, 136 people in 38 households, the congregation in the pews and the rain over Ubuntu's high street.</sub> |
+
+* **Assets.** A library of everything the province is made of: houses in three sizes; churches (small, medium,
+  large), halls, libraries and cemeteries; schools; clinics, medical centres, the hospital and an ambulance
+  station; police stations, magistrates' courts, council chambers, a post office and Government House;
+  spazas, general dealers, delis, a pharmacy and the mall; the Mutual Bank's branches, a commercial bank and
+  the reserve bank; co-op offices, corporate towers, professional chambers, workshops, farms and taxi ranks;
+  parks, squares, a grand park, a sports centre, the stadium and the concert hall; bus stops, the terminus,
+  Hyperline stations and the airfield. Each lays out its own rooms and furniture with the builders the
+  province was drawn with, and says what it does in the simulation.
+* **Controls.** Place a building and it turns its door to the nearest road and steps back to the road's
+  building line; move, resize (within the asset's bounds), turn, duplicate and delete, singly or by marquee;
+  draw roads (their ends snap to the network), streets lined with plots, settlement and city zones and the
+  Hyperline's guideway; undo and redo every step; snap to a 1, 2, 5 or 10 m grid. Zones and road ends have handles to drag. A settlement's **wealth
+  tier** (the estates, affluent, comfortable, middle, working, low-income, civic) sets how its households are
+  drawn, from the scenario's tier profiles, and its *People here* sliders set it apart from its tier: its own
+  unemployment, car ownership, medical aid, funeral and life cover, savings and schooling.
+* **Tools.** Sets that lay out several buildings at once (a street of houses, a village core, a civic centre,
+  the airfield); live **checks** that stop a world that cannot run (no homes, no shop, a door no road reaches,
+  a road network in pieces, buildings overlapping or off the map) and say what a missing place will mean (no
+  clinic: the sick are nursed at home); a world panel with the households to be seated, the posts to be
+  filled and the businesses that will keep books.
+* **Saving.** A world is saved as a **`.sce` file**, the project file of the Scelo family (`format:
+  "scelo-project"`, version 1, `app: "Community Lab"`): **Save** keeps it in the lab, as
+  `<name>.sce` in the `worlds` folder of the lab's data (`data/worlds/` when run from source), listed under
+  *Your worlds*; **Download .sce** gives you a copy to keep or share and
+  **Open .sce** opens one. Scelo opens the same file as a project whose dataset is the world's buildings (one
+  row each: what it is, its settlement, city and tier, where it stands, its size, door and plot); a `.sce`
+  saved by Scelo is a dataset session, not a world, and the builder says so. The format is in
+  [`src/sim/plan/sce.ts`](src/sim/plan/sce.ts).
+* **Running it.** *Run this world* derives everything the engine needs from the plan: which church, shop,
+  park and stop each settlement (and each house, where there are several) uses; which school, clinic, police
+  station, court, council and cemetery each city shares; the posts each building cannot leave empty and
+  where they are filled from; the businesses' books on the province's own templates, scaled to the
+  settlement's wealth; the bus lines through each city's stops; the exits where roads leave the map; the
+  Hyperline's stations along its guideway and the airfield's runway. The simulation then runs on it from day 0
+  with the scenario's assumptions, and everything else in the lab works on it as on the province: the
+  animated day and the 3D close-up, the analytics, the books, the bank and SARS, the actuarial workbench,
+  projections and Monte Carlo (the batch carries the world to the server). The world's own hash goes into
+  the basis hash, so every export says which world it came from.
+
+The derivation is held to the province: deriving the province's own plan gives back the built-in atlas table
+for table and building for building, and a run through that path is the built-in run (`tests/plan.test.ts`).
+The rules, and what a built world assumes that the province does not, are in
+[`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md#worlds-built-in-the-community-builder-srcsimplan).
+
 ## For actuaries
 
 * **Explicit basis.** Every rate is a parameter (the left panel, or a province file in the workbench) and the whole basis is hashed onto every export.
@@ -215,6 +271,7 @@ a Laffer curve. None of it clutters the village: two tiles open one workspace.
 | Talk to a resident | select a person → *Talk to …* in the inspector (in character, from the simulation state) |
 | Direct the scene | click the **clock** in the header: jump to the Sunday service, fellowship, a school morning, market day, a date or a season, and force the weather (storm, heat wave, cold snap) to see how the community responds. Days in between are still simulated; a forced sky is recorded in the event ledger |
 | Change the scenario | *Scenario & basis* in the left panel → Rebuild province; or write a province file in the workbench and run it |
+| Build or change a community | the **Build** button in the header opens the Community Builder: pick from the library and click to place; <kbd>V</kbd> select, <kbd>R</kbd> road, <kbd>S</kbd> street of houses, <kbd>Z</kbd> settlement, <kbd>C</kbd> city, <kbd>T</kbd> Hyperline guideway, <kbd>X</kbd> erase, <kbd>F</kbd> turn, <kbd>Del</kbd> delete, <kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> undo/redo, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate, arrows nudge; the **Checks** tab flies to each problem; **Run this world** starts the simulation on it |
 | Analytics | the bottom strip is the navigation: every tile opens its detailed tab (click the lit tile again to close). The ⤢ button in the drawer header makes it full screen so every chart of a tab fits without scrolling |
 | Actuarial workbench | the **Actuarial** tile (its figure is the society's premium loading over the pure risk premium): sections for interest, life contingencies, pricing, risk & solvency, projections, retirement & grants and standards; the valuation rate chips at the top of the rail revalue everything; the scope picker's person becomes the life, and the worker, the sections describe |
 | Economy, books, bank and tax | the **Economy** tile opens the workspace at the overview (micro and macro alongside); the **Finance & tax** tile opens it at the Mutual Bank (books, burial society, SARS and audit alongside). A household's inspector shows its accounts and opens its ledger; select the bank building on the map for its balance sheet; a person's card shows their payslip and SARS position |
@@ -247,7 +304,7 @@ cd community-lab
 bun install
 
 bun run dev                    # the dev pair: API on http://127.0.0.1:3040, UI on http://localhost:5195
-bun test                       # the engine's tests (determinism, bases, books, workspace safety, the sample)
+bun test                       # the engine's tests (determinism, bases, books, built worlds, workspace safety, the sample)
 bun run typecheck
 
 bun run desktop:install        # the desktop app's own dependencies (Electron, electron-builder)
@@ -276,19 +333,27 @@ src/sim/          the engine (pure TypeScript, no DOM): rng · time · types · 
                   personality · population · world · institutions · schedule · movement · transit · health
                   social · security · economy · demography · stats · weather · engine · batch · shocks
                   experience · patch · experiment
-src/sim/layout/   the province's geography: emmaus · newhaven · ithemba · unity · hyperline · airport
+src/sim/atlas.ts  the world a run is set in (cities, settlements, roads, buildings, landmarks, posts, books),
+                  installed per Simulation; world.ts and institutions.ts read the installed one
+src/sim/layout/   the province's geography: emmaus · newhaven · ithemba · unity · hyperline · airport · builders
+                  (the building types) · plots · province (the province's atlas)
+src/sim/plan/     built worlds: types (the world format) · sce (the .sce file) · assets (the catalogue) · derive
+                  (plan → atlas) · validate (the checks) · edit (every change the builder makes) · prefabs
+                  (streets, sets, the airfield) · templates (blank, Masakhane, the province) · province · hash
 src/sim/finance/  accounts (double-entry, statements, audit chain) · posting · tax (SARS) · bank · macro · micro
 src/shared/       exchange (the data contract) · exports · templates · files (the workbench's formats)
                   sample (the sample workspace) · mortalityCsv · narrative (dialogue prompts)
 src/server/       Bun API: AI providers (Ollama default), streaming dialogue, the worker pool's jobs
-                  (experiments, pooled exports, batches), the workspace (workspace.ts), sqlite
+                  (experiments, pooled exports, batches), the workspace (workspace.ts), saved worlds (worlds.ts:
+                  .sce files in the data folder's worlds/, served at /api/plans), sqlite
 src/client/       React + custom CSS: the province (canvas renderer, panels, ECharts analytics; render3d/ the 3D
-                  close-up) and the workbench (workbench/: Monaco, the script runtime, the console)
+                  close-up), the Community Builder (builder/: library, drawing board, properties and checks) and
+                  the workbench (workbench/: Monaco, the script runtime, the console)
 src/embed/        the engine for web pages: a live province in a worker
 desktop/          the Electron app: main process, preload bridge, menus, the engine's supervisor, packaging
-brand/            the C₀.₁ mark and its generator
-scripts/          dev runner, batch, calibrate, smoke, screenshots, the embed build; humans/ builds the people's
-                  kit from MakeHuman's CC0 data
+brand/            the C₁.₀ mark and its generator
+scripts/          dev runner, batch, calibrate, smoke, screenshots, builder-shots, the embed build; humans/ builds
+                  the people's kit from MakeHuman's CC0 data; poselab/ a bench for bodies and moves
 tests/            bun test suite
 docs/             ODD.md (model description), ASSUMPTIONS.md (basis and provenance), WORKBENCH.md, INSTALL.md,
                   RELEASING.md
@@ -297,7 +362,7 @@ manual/           the user manual (MkDocs Material), published at docs.intellige
 
 ## Status and honesty
 
-This is a v0.1 research instrument. Numbers marked *proxy* in the assumptions file are reasoned
+This is a v1.0 research instrument. Numbers marked *proxy* in the assumptions file are reasoned
 placeholders awaiting better sources; published numbers are cited by release. With about 400 residents every
 statistic is still noisy — the intervals say so — which is exactly why the Monte Carlo tab exists.
 

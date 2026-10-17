@@ -7,10 +7,11 @@ import { JOBS, eduRank } from '../../sim/population';
 import { nightDarkness } from '../../sim/time';
 import { TRAIN_LENGTH } from '../../sim/transit';
 import type { Building, Conversation, Intruder, Person, Room, Vehicle, World } from '../../sim/types';
-import { CITIES, COMMUNITIES, STATIONS, TRACK, TRACK_CUM, TRACK_WIDTH, WORLD_H, WORLD_W, trackPoint } from '../../sim/world';
+import { CITIES, CITY, COMMUNITIES, STATIONS, TRACK, TRACK_CUM, TRACK_WIDTH, WORLD_H, WORLD_W, trackPoint } from '../../sim/world';
 import { fitWorld } from '../lib/camera';
 import type { Camera } from '../lib/camera';
 import { tokens } from '../lib/theme';
+import { isProvince } from '../lib/worldNames';
 import { plotColor } from '../lib/householdColor';
 import { tracePath } from './shapes';
 import { furnitureOf } from './furniture';
@@ -80,8 +81,12 @@ export class Renderer {
   private lastTheme = '';
   private lastNight = '';
   private treeSeeds: Array<{ x: number; y: number; r: number }> = [];
+  /** The road network the trees were planted along (a different world plants its own). */
+  private treeRoads: unknown = null;
   /** Screen boxes already occupied by labels / bubbles this frame (collision avoidance). */
   private placed: Array<{ x: number; y: number; w: number; h: number }> = [];
+  /** Building names drawn this frame: in a built world a name that would overlap one is left out (the province was drawn with room for its own). */
+  private nameBoxes: Array<{ x: number; y: number; w: number; h: number }> = [];
   /** Everyone singing a hymn right now, across every church (rebuilt each frame). */
   private singers = new Set<string>();
   /**
@@ -164,6 +169,7 @@ export class Renderer {
   draw(ctx: CanvasRenderingContext2D, st: RenderState, dt: number): void {
     this.refreshTheme();
     this.later = [];
+    this.nameBoxes = [];
     if (st.overlay) {
       this.drawOverlay(ctx, st, st.overlay);
       return;
@@ -566,6 +572,12 @@ export class Renderer {
         ctx.font = font;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
+        if (!isProvince()) {
+          const tw = ctx.measureText(label).width;
+          const box = { x: lx - tw / 2 - 2, y: ly - 1, w: tw + 4, h: fs + 2 };
+          if (this.nameBoxes.some((p) => box.x < p.x + p.w && box.x + box.w > p.x && box.y < p.y + p.h && box.y + box.h > p.y)) return;
+          this.nameBoxes.push(box);
+        }
         this.halo(ctx, label, lx, ly, t.fg2);
       });
     }
@@ -711,7 +723,7 @@ export class Renderer {
         this.halo(ctx, airport ? 'AIRPORT' : c.name.toUpperCase(), cx, cy - 4, this.t.fg2);
         ctx.font = `${Math.max(9, 13 * z / fit)}px ${'SN Pro'}, sans-serif`;
         ctx.textBaseline = 'top';
-        this.halo(ctx, c.id === 'emmaus' ? 'the rich city' : c.id === 'newhaven' ? 'the secular city' : airport ? 'Unity Provincial' : 'the poor city', cx, cy + 2, this.t.muted);
+        if (c.tagline) this.halo(ctx, c.tagline, cx, cy + 2, this.t.muted);
       }
     }
     // Settlements and the centre's zones
@@ -729,7 +741,8 @@ export class Renderer {
         this.halo(ctx, c.name.toUpperCase(), cx, cy - 2, this.t.fg2);
         ctx.font = `${Math.max(9, Math.min(13, 4 * z))}px ${'SN Pro'}, sans-serif`;
         ctx.textBaseline = 'top';
-        this.halo(ctx, c.tier === 'civic' ? (c.city === 'unity' ? 'Unity Centre' : c.city === 'airport' ? 'terminal · tower · hangar · runway 18/36' : 'civic centre') : c.tier === 'middle' ? 'middle-class' : c.tier === 'working' ? 'working-class' : c.tier === 'ultra' ? 'the estates' : c.tier, cx, cy + 2, this.t.muted);
+        const city = CITY[c.city];
+        this.halo(ctx, c.tier === 'civic' ? (city?.kind === 'centre' ? city.name : city?.kind === 'airport' ? 'terminal · tower · hangar · runway 18/36' : 'civic centre') : c.tier === 'middle' ? 'middle-class' : c.tier === 'working' ? 'working-class' : c.tier === 'ultra' ? 'the estates' : c.tier, cx, cy + 2, this.t.muted);
       }
     }
     ctx.restore();
@@ -737,7 +750,10 @@ export class Renderer {
 
   private drawTrees(ctx: CanvasRenderingContext2D, st: RenderState, X: (x: number) => number, Y: (y: number) => number): void {
     const z = st.camera.zoom;
-    if (!this.treeSeeds.length) this.treeSeeds = treeSeeds(st.world);
+    if (this.treeRoads !== st.world.roads) {
+      this.treeSeeds = treeSeeds(st.world);
+      this.treeRoads = st.world.roads;
+    }
     ctx.fillStyle = seasonTree(this.t, st.world.weather.season, this.lastTheme === 'dark');
     for (const tr of this.treeSeeds) {
       ctx.beginPath();

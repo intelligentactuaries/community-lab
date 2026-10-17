@@ -484,12 +484,13 @@ function uniform(job: string): { m: Outfit; f?: Outfit; hat?: [string, string[]]
     case 'nurse':
       return { m: [['m_trousers', ['#6FB7C9']], ['m_tee', ['#6FB7C9']], ['shoes05', []]], f: [['f_jeans', ['#6FB7C9']], ['f_tee', ['#6FB7C9']], ['shoes05', []]] };
     case 'doctor':
-      return { m: [['m_trousers', ['#5B6068']], ['m_shirt', ['#9DB9D6']], ['coat', ['#FBFBF8']], ['shoes04', []]], f: [['f_jeans', ['#5B6068']], ['f_blouse', ['#9DB9D6']], ['coat', ['#FBFBF8']], ['shoes04', []]] };
+      // The white coat: a jacket over tails to the knee, open down the front.
+      return { m: [['m_trousers', ['#5B6068']], ['m_shirt', ['#9DB9D6']], ['coat', ['#FBFBF8']], ['m_jacket', ['#FBFBF8']], ['shoes04', []]], f: [['f_jeans', ['#5B6068']], ['f_blouse', ['#9DB9D6']], ['coat', ['#FBFBF8']], ['m_jacket', ['#FBFBF8']], ['shoes04', []]] };
     case 'pastor':
       return { m: [['m_trousers', ['#1D1D22']], ['m_suit', ['#1D1D22', '#FFFFFF', '#1D1D22']], ['shoes04', []]], f: [['skirt_long', ['#1D1D22']], ['f_blouse', ['#1D1D22']], ['shoes04', []]] };
     case 'magistrate':
     case 'attorney':
-      return { m: [['m_trousers', ['#2B2C31']], ['m_suit', ['#1D1D22', '#F4F3EF', '#2B2C31']], ['shoes04', []]], f: [['f_skirt', ['#1D1D22']], ['f_blouse', ['#F4F3EF']], ['coat', ['#1D1D22']], ['shoes04', []]] };
+      return { m: [['m_trousers', ['#2B2C31']], ['m_suit', ['#1D1D22', '#F4F3EF', '#2B2C31']], ['shoes04', []]], f: [['f_skirt', ['#1D1D22']], ['f_blouse', ['#F4F3EF']], ['coat', ['#1D1D22']], ['m_jacket', ['#1D1D22']], ['shoes04', []]] };
     case 'teacher':
     case 'clerk':
       return { m: [['m_trousers', ['#3B4E6E']], ['m_shirt', ['#F4F3EF']], ['shoes04', []]], f: [['f_skirt', ['#34466A']], ['f_blouse', ['#F4F3EF']], ['shoes01', []]] };

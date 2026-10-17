@@ -16,7 +16,8 @@ import type { Rng } from './rng';
 import { DAYS_PER_YEAR } from './time';
 import type { BigFive, Building, CityId, CommunityId, ConditionId, CouncilRole, CouncilSeat, Education, Household, JobId, LifeStage, Person, Schooling, Sex, Tier, Vehicle, World } from './types';
 import { seedTransit } from './transit';
-import { AMBULANCE_BASES, CITIES, CLINIC_IDS, COMMUNITIES, COUNCIL_IDS, COURT_IDS, POLICE_IDS, TAXI_RANK_IDS, cityOf, doorOf, landmark, residentialOf, roomByKind, tierOf } from './world';
+import { activeAtlas } from './atlas';
+import { AMBULANCE_BASES, CHURCH_IDS as CHURCHES, CITIES, CLINIC_IDS, COMMUNITIES, COMMUNITY, COUNCIL_IDS, COURT_IDS, POLICE_IDS, TAXI_RANK_IDS, cityOf, defaultCommunity, doorOf, landmark, residentialOf, roomByKind, tierOf } from './world';
 
 export type { EssentialPost };
 
@@ -359,17 +360,11 @@ export function createVehicle(ctx: Ctx, householdId: string | null, kind: Vehicl
 /** The farms, workshops and spazas carry their owners' names. */
 export function nameAfterOwners(world: World): void {
   const people = alivePeople(world);
-  for (const id of ['farm', 'nh-farm']) {
-    const farmer = people.find((p) => p.job === 'farmer' && p.workplaceId === id);
-    if (farmer && world.buildings[id]) world.buildings[id].name = id === 'farm' ? `${farmer.surname} Farm` : `${farmer.surname} Market Garden`;
-  }
-  for (const id of ['workshop', 'it-workshop']) {
-    const builder = people.find((p) => p.job === 'builder' && p.workplaceId === id);
-    if (builder && world.buildings[id]) world.buildings[id].name = id === 'workshop' ? `${builder.surname}'s Workshop` : `${builder.surname}'s Welding & Repairs`;
-  }
-  for (const id of SPAZA_IDS) {
-    const keeper = people.find((p) => p.job === 'shopkeeper' && p.workplaceId === id);
-    if (keeper && world.buildings[id]) world.buildings[id].name = id === 'nh-spaza' ? `${keeper.surname}'s Superette` : keeper.sex === 'F' ? `Mama ${keeper.firstName}'s Spaza` : `${keeper.surname}'s Spaza`;
+  for (const o of activeAtlas().ownerNames) {
+    const owner = people.find((p) => p.job === o.job && p.workplaceId === o.id);
+    if (!owner || !world.buildings[o.id]) continue;
+    const pattern = o.female && owner.sex === 'F' ? o.female : o.pattern;
+    world.buildings[o.id].name = pattern.replace('{surname}', owner.surname).replace('{first}', owner.firstName);
   }
 }
 
@@ -491,7 +486,7 @@ function composeHousehold(ctx: Ctx, hh: Household, type: HouseholdType, surname:
 
 export function communityOfPerson(world: World, p: Person): CommunityId {
   const hh = world.households[p.householdId];
-  return (hh && world.buildings[hh.houseId]?.community) || 'ebenezer';
+  return (hh && world.buildings[hh.houseId]?.community) || defaultCommunity();
 }
 
 export function cityOfPerson(world: World, p: Person): CityId {
@@ -505,7 +500,10 @@ export function tierOfPerson(world: World, p: Person): Tier {
 /** The wealth profile a settlement's households are drawn from. */
 export function profileFor(P: ScenarioParams, community: CommunityId | null | undefined): CommunityProfile {
   const tier = tierOf(community);
-  return tier === 'civic' ? P.tiers.middle : P.tiers[tier];
+  const base = tier === 'civic' ? P.tiers.middle : P.tiers[tier];
+  // A built world's settlement may depart from its tier's profile.
+  const own = community ? COMMUNITY[community]?.profile : undefined;
+  return own ? { ...base, ...own, educationMix: { ...base.educationMix, ...own.educationMix } } : base;
 }
 
 /**
@@ -513,20 +511,22 @@ export function profileFor(P: ScenarioParams, community: CommunityId | null | un
  * posts are filled: the estates run on executives and professionals, the
  * townships on piece work and the taxi rank.
  */
-function jobMixFor(P: ScenarioParams, tier: Tier, canOffice: boolean, tertiary: boolean, postgrad: boolean, homemakerW: number): Array<[JobId, number]> {
+function jobMixFor(P: ScenarioParams, tier: Tier, canOffice: boolean, tertiary: boolean, postgrad: boolean, homemakerW: number, unemployment?: number): Array<[JobId, number]> {
+  // The settlement's own unemployment where it states one, else its tier's.
+  const U = (t: Exclude<Tier, 'civic'>) => unemployment ?? P.tiers[t].unemployment;
   switch (tier) {
     case 'ultra':
-      return [['executive', postgrad ? 0.32 : tertiary ? 0.12 : 0.01], ['engineer', tertiary ? 0.16 : 0.01], ['attorney', postgrad ? 0.1 : 0], ['accountant', tertiary ? 0.1 : 0], ['office', canOffice ? 0.2 : 0.04], ['homemaker', homemakerW], ['unemployed', P.tiers.ultra.unemployment]];
+      return [['executive', postgrad ? 0.32 : tertiary ? 0.12 : 0.01], ['engineer', tertiary ? 0.16 : 0.01], ['attorney', postgrad ? 0.1 : 0], ['accountant', tertiary ? 0.1 : 0], ['office', canOffice ? 0.2 : 0.04], ['homemaker', homemakerW], ['unemployed', U('ultra')]];
     case 'affluent':
-      return [['office', canOffice ? 0.42 : 0.06], ['engineer', tertiary ? 0.14 : 0.01], ['accountant', tertiary ? 0.08 : 0], ['attorney', postgrad ? 0.06 : 0], ['executive', postgrad ? 0.06 : 0], ['homemaker', homemakerW], ['builder', 0.02], ['unemployed', P.tiers.affluent.unemployment]];
+      return [['office', canOffice ? 0.42 : 0.06], ['engineer', tertiary ? 0.14 : 0.01], ['accountant', tertiary ? 0.08 : 0], ['attorney', postgrad ? 0.06 : 0], ['executive', postgrad ? 0.06 : 0], ['homemaker', homemakerW], ['builder', 0.02], ['unemployed', U('affluent')]];
     case 'comfortable':
-      return [['office', canOffice ? 0.5 : 0.08], ['engineer', tertiary ? 0.08 : 0.01], ['accountant', tertiary ? 0.05 : 0], ['vendor', 0.02], ['builder', 0.04], ['homemaker', homemakerW], ['unemployed', P.tiers.comfortable.unemployment]];
+      return [['office', canOffice ? 0.5 : 0.08], ['engineer', tertiary ? 0.08 : 0.01], ['accountant', tertiary ? 0.05 : 0], ['vendor', 0.02], ['builder', 0.04], ['homemaker', homemakerW], ['unemployed', U('comfortable')]];
     case 'middle':
-      return [['office', canOffice ? 0.32 : 0.05], ['homemaker', homemakerW], ['vendor', 0.12], ['farmhand', 0.12], ['builder', canOffice ? 0.05 : 0.1], ['unemployed', P.healthProfile === 'developed' ? 0.07 : P.tiers.middle.unemployment]];
+      return [['office', canOffice ? 0.32 : 0.05], ['homemaker', homemakerW], ['vendor', 0.12], ['farmhand', 0.12], ['builder', canOffice ? 0.05 : 0.1], ['unemployed', P.healthProfile === 'developed' ? 0.07 : U('middle')]];
     case 'working':
-      return [['office', canOffice ? 0.15 : 0.03], ['homemaker', homemakerW * 0.9], ['vendor', 0.15], ['farmhand', 0.18], ['builder', canOffice ? 0.04 : 0.08], ['taxidriver', 0.04], ['busdriver', 0.02], ['ehailer', 0.03], ['unemployed', P.tiers.working.unemployment]];
+      return [['office', canOffice ? 0.15 : 0.03], ['homemaker', homemakerW * 0.9], ['vendor', 0.15], ['farmhand', 0.18], ['builder', canOffice ? 0.04 : 0.08], ['taxidriver', 0.04], ['busdriver', 0.02], ['ehailer', 0.03], ['unemployed', U('working')]];
     default:
-      return [['office', canOffice ? 0.07 : 0.02], ['homemaker', homemakerW * 0.8], ['vendor', 0.16], ['farmhand', 0.2], ['builder', canOffice ? 0.03 : 0.06], ['taxidriver', 0.03], ['busdriver', 0.02], ['ehailer', 0.02], ['unemployed', P.tiers['low-income'].unemployment]];
+      return [['office', canOffice ? 0.07 : 0.02], ['homemaker', homemakerW * 0.8], ['vendor', 0.16], ['farmhand', 0.2], ['builder', canOffice ? 0.03 : 0.06], ['taxidriver', 0.03], ['busdriver', 0.02], ['ehailer', 0.02], ['unemployed', U('low-income')]];
   }
 }
 
@@ -574,7 +574,9 @@ export function assignJobs(ctx: Ctx): void {
     const youngKids = hh.memberIds.map((id) => world.people[id]).filter((c) => c && c.age < 6).length;
     const canOffice = eduAtLeast(p.education, 'matric');
     const homemakerW = p.sex === 'F' && partner && (youngKids > 0 || rng.bernoulli(0.3)) ? 0.25 : 0.03;
-    const job = rng.weighted<JobId>(jobMixFor(P, tierOfPerson(world, p), canOffice, eduAtLeast(p.education, 'tertiary'), eduAtLeast(p.education, 'postgrad'), homemakerW));
+    // A job the world has no place for (a bus driver where no bus runs) carries no weight.
+    const mix = jobMixFor(P, tierOfPerson(world, p), canOffice, eduAtLeast(p.education, 'tertiary'), eduAtLeast(p.education, 'postgrad'), homemakerW, COMMUNITY[communityOfPerson(world, p)]?.profile?.unemployment).map(([j, w]): [JobId, number] => [j, JOBS[j].workplace === null || defaultWorkplace(world, p, j) ? w : 0]);
+    const job = rng.weighted<JobId>(mix);
     setJob(ctx, p, job);
   }
   hireDomesticWorkers(ctx, rng, taken);
@@ -631,8 +633,11 @@ export function payScaleFor(job: JobId, workplaceId: string | null): number {
 
 export function setJob(ctx: Ctx, p: Person, job: JobId, workplaceId?: string | null): void {
   const rng = ctx.rng.stream('population');
+  const wp = workplaceId !== undefined ? workplaceId : JOBS[job].workplace === null ? null : defaultWorkplace(ctx.world, p, job);
+  // Work needs a place to do it: where the world has none, the job is not there to be had.
+  if (wp === null && JOBS[job].workplace !== null) job = 'unemployed';
   p.job = job;
-  p.workplaceId = workplaceId !== undefined ? workplaceId : JOBS[job].workplace === null ? null : defaultWorkplace(ctx.world, p, job);
+  p.workplaceId = wp;
   p.income = Math.round(incomeFor(rng, job, p.education, p.age) * payScaleFor(job, p.workplaceId));
 }
 
@@ -721,10 +726,11 @@ export function populateCommunity(ctx: Ctx): void {
   // are interleaved. Ebenezer's count is the `households` parameter and its
   // households draw on the baseline education mix; every other settlement
   // takes its tier's profile. The low-income townships seed young.
+  const baseline = activeAtlas().baseline;
   const seed: Array<{ order: number[]; count: number; mix: EducationMix; ageProfile: AgeProfileId }> = COMMUNITIES.filter((c) => c.tier !== 'civic').map((c) => ({
     order: c.seedOrder,
-    count: c.id === 'ebenezer' ? P.households : Math.min(c.seedHouseholds, c.seedOrder.length),
-    mix: c.id === 'ebenezer' ? P.educationMix : P.tiers[c.tier as Exclude<Tier, 'civic'>].educationMix,
+    count: c.id === baseline ? P.households : Math.min(c.seedHouseholds, c.seedOrder.length),
+    mix: c.id === baseline ? P.educationMix : profileFor(P, c.id).educationMix,
     ageProfile: c.tier === 'low-income' ? 'young' : P.ageProfile,
   }));
   const surnames = new Set<string>();
@@ -751,8 +757,8 @@ export function populateCommunity(ctx: Ctx): void {
     decideHomeschool(ctx, hh);
     for (const pid of hh.memberIds) assignSchooling(ctx, world.people[pid]);
     // Economics at t0, shaped by the settlement's wealth profile (Ebenezer's is the baseline)
-    const com = world.buildings[hh.houseId]?.community ?? 'ebenezer';
-    const prof = com === 'ebenezer' ? null : profileFor(P, com);
+    const com = world.buildings[hh.houseId]?.community ?? defaultCommunity();
+    const prof = com === baseline ? null : profileFor(P, com);
     const [sLo, sHi] = prof?.savingsMonths ?? [0.5, 6];
     hh.savings = Math.round(rng.range(sLo, sHi) * Math.max(3000, householdIncome(world, hh)));
     hh.insurance.funeral = rng.bernoulli(prof?.funeralCoverShare ?? P.funeralCoverShare);
@@ -786,6 +792,7 @@ export function populateCommunity(ctx: Ctx): void {
   }
   for (const base of AMBULANCE_BASES) {
     const b = world.buildings[base.id];
+    if (!b) continue;
     const bay = roomByKind(b, 'garage');
     for (let i = 0; i < base.n; i++) {
       const s = bay?.spots[i];
@@ -794,6 +801,7 @@ export function populateCommunity(ctx: Ctx): void {
   }
   for (const id of TAXI_RANK_IDS) {
     const r = world.buildings[id];
+    if (!r) continue;
     const yard = roomByKind(r, 'garage');
     // In the yard in two rows, side by side, facing east.
     const cx = yard ? yard.x + yard.w / 2 : r.x + r.w / 2;
@@ -834,18 +842,24 @@ export function refreshRoles(world: World): void {
   const doctorByClinic: Record<string, string | null> = {};
   for (const id of CLINIC_IDS) doctorByClinic[id] = find('doctor', id);
   const dmoByCity: Record<string, string | null> = {};
-  for (const c of CITIES) if (c.kind === 'city') dmoByCity[c.id] = find('dmo', landmark(residentialOf(c.id)[0], 'medical'));
+  for (const c of CITIES) {
+    if (c.kind !== 'city') continue;
+    const first = residentialOf(c.id)[0];
+    const med = first ? landmark(first, 'medical') : null;
+    dmoByCity[c.id] = med ? find('dmo', med) : null;
+  }
   const magistrateByCourt: Record<string, string | null> = {};
   for (const id of COURT_IDS) magistrateByCourt[id] = find('magistrate', id);
   const policeByStation: Record<string, string[]> = {};
   for (const id of POLICE_IDS) policeByStation[id] = all('police', id);
   world.roles = {
-    pastorId: pastorByChurch.church ?? find('pastor'),
-    doctorId: doctorByClinic.clinic ?? find('doctor'),
-    dmoId: dmoByCity.emmaus ?? find('dmo'),
+    // The first city's office-holders (in the province: Emmaus's church, clinic, DMO and court).
+    pastorId: pastorByChurch[CHURCHES[0] ?? ''] ?? find('pastor'),
+    doctorId: doctorByClinic[CLINIC_IDS[0] ?? ''] ?? find('doctor'),
+    dmoId: dmoByCity[activeAtlas().defaultCity] ?? find('dmo'),
     nurseIds: all('nurse'),
     policeIds: all('police'),
-    magistrateId: magistrateByCourt.court ?? find('magistrate'),
+    magistrateId: magistrateByCourt[COURT_IDS[0] ?? ''] ?? find('magistrate'),
     teacherIds: all('teacher'),
     pastorByChurch,
     doctorByClinic,
@@ -941,7 +955,9 @@ function seatCounts(seats: CouncilSeat[]): Record<string, number> {
 }
 
 /** The cities that elect a council. */
-const COUNCIL_CITIES: CityId[] = CITIES.filter((c) => c.kind === 'city').map((c) => c.id);
+function councilCities(): CityId[] {
+  return CITIES.filter((c) => c.kind === 'city').map((c) => c.id);
+}
 
 /** Build one city's council from scratch. */
 function formCityCouncil(ctx: Ctx, city: CityId): CouncilSeat[] {
@@ -1005,7 +1021,7 @@ function formCityCouncil(ctx: Ctx, city: CityId): CouncilSeat[] {
 export function formCouncil(ctx: Ctx): void {
   const world = ctx.world;
   world.council = [];
-  for (const city of COUNCIL_CITIES) {
+  for (const city of councilCities()) {
     const seats = formCityCouncil(ctx, city);
     world.council.push(...seats);
     const named = seats.filter((s) => s.personId).map((s) => `${fullName(world.people[s.personId!])} (${COUNCIL_TITLES[s.role]}, ${world.buildings[world.households[world.people[s.personId!].householdId]?.houseId ?? '']?.community ?? '—'})`);

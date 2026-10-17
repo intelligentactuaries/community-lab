@@ -33,7 +33,10 @@ import { FLIGHTS } from './transit';
 import { MINUTES_PER_DAY, calendarForDay, parseStartDate } from './time';
 import type { SimEvent, World } from './types';
 import { applyWeatherOverride, climateById, generateWeather, initialWeatherState } from './weather';
-import { WORLD_H, WORLD_W, buildBuildings, buildRoadGraph, clearPathCache, type RoadGraph } from './world';
+import { activeAtlas, installAtlas, type Atlas } from './atlas';
+import { atlasFor } from './plan/derive';
+import { validatePlan } from './plan/validate';
+import { CITIES, WORLD_H, WORLD_W, buildBuildings, buildRoadGraph, clearPathCache, hasAirport, type RoadGraph } from './world';
 
 const ID_PREFIX: Record<keyof World['nextIds'], string> = {
   person: 'p',
@@ -49,6 +52,8 @@ const ID_PREFIX: Record<keyof World['nextIds'], string> = {
 
 export class Simulation {
   readonly params: ScenarioParams;
+  /** The world this run is set in (installed before every step, so two runs on different worlds can share a process). */
+  readonly atlas: Atlas;
   readonly world: World;
   readonly ctx: Ctx;
   readonly roads: RoadGraph;
@@ -63,6 +68,16 @@ export class Simulation {
   constructor(partial?: Partial<ScenarioParams>) {
     this.params = mergeParams(partial);
     const P = this.params;
+    if (P.plan) {
+      // A world from the builder must be able to run: homes, a shop, roads that reach every door.
+      const errors = validatePlan(P.plan).filter((i) => i.level === 'error');
+      if (errors.length) throw new Error(`This world cannot run yet: ${errors.map((e) => e.text).join(' ')}`);
+    }
+    this.atlas = atlasFor(P.plan);
+    installAtlas(this.atlas);
+    // A world made in the builder names itself and its region (the Mutual Bank, the burial society).
+    if (this.atlas.name) P.placeName = this.atlas.name;
+    if (this.atlas.region) P.regionName = this.atlas.region;
     this.startMs = parseStartDate(P.startDate);
     const rng = new RngStreams(P.seed);
     const cal0 = calendarForDay(this.startMs, 0);
@@ -109,7 +124,7 @@ export class Simulation {
       finance: emptyFinance(P),
       roles: { pastorId: null, doctorId: null, dmoId: null, nurseIds: [], policeIds: [], magistrateId: null, teacherIds: [], pastorByChurch: {}, doctorByClinic: {}, dmoByCity: {}, magistrateByCourt: {}, policeByStation: {}, surgeonIds: [] },
       council: [],
-      basisHash: basisHash(P),
+      basisHash: basisHash(P, this.atlas.hash),
     };
     this.world = world;
     const self = this;
@@ -157,10 +172,19 @@ export class Simulation {
     macroPlace(this.ctx);
     monthlySnapshot(this.ctx);
     world.lastDayStep = 0;
-    this.ctx.emit({ kind: 'household', severity: 'info', text: `${P.regionName} Province: ${Object.keys(world.households).length} households, ${alivePeople(world).length} people across Emmaus, Newhaven and Ithemba, with Unity Centre, the airport and the Hyperline between them. Basis ${world.basisHash}, seed "${P.seed}".` });
+    const opening = this.atlas.plan
+      ? `${P.placeName}: ${Object.keys(world.households).length} households, ${alivePeople(world).length} people in ${listOf(CITIES.filter((c) => c.kind === 'city').map((c) => c.name))}. Basis ${world.basisHash}, seed "${P.seed}".`
+      : `${P.regionName} Province: ${Object.keys(world.households).length} households, ${alivePeople(world).length} people across Emmaus, Newhaven and Ithemba, with Unity Centre, the airport and the Hyperline between them. Basis ${world.basisHash}, seed "${P.seed}".`;
+    this.ctx.emit({ kind: 'household', severity: 'info', text: opening });
+  }
+
+  /** Make this run's world the installed one (cheap when it already is). */
+  private own(): void {
+    if (activeAtlas() !== this.atlas) installAtlas(this.atlas);
   }
 
   setMicro(on: boolean): void {
+    this.own();
     if (this.micro === on) return;
     this.micro = on;
     this.ctx.micro = on;
@@ -190,6 +214,7 @@ export class Simulation {
   /** Advance by `minutes` of simulated time. */
   advance(minutes: number): void {
     if (minutes <= 0) return;
+    this.own();
     if (this.micro && minutes <= 180) this.advanceMicro(minutes);
     else this.advanceMacro(minutes);
   }
@@ -253,6 +278,7 @@ export class Simulation {
    * Returns the number of days that were run.
    */
   jumpToMinute(target: number): number {
+    this.own();
     const from = this.world.minute;
     if (target <= from) return 0;
     const days = Math.floor(target / MINUTES_PER_DAY) - this.world.day;
@@ -262,6 +288,7 @@ export class Simulation {
 
   /** Run whole years quickly (batch / headless). */
   runDays(days: number, onDay?: (day: number) => void): void {
+    this.own();
     const wasMicro = this.micro;
     this.setMicro(false);
     for (let i = 0; i < days; i++) {
@@ -332,7 +359,7 @@ export class Simulation {
     // 8 social
     socialDayStep(ctx);
     // The airline flies its timetable every day of the year.
-    w.stats.flights += FLIGHTS.length;
+    if (hasAirport()) w.stats.flights += FLIGHTS.length;
     // 9 security
     scheduleIntruders(ctx);
     if (!this.micro) resolveIntrudersMacro(ctx);
@@ -357,6 +384,11 @@ export class Simulation {
     for (const fn of this.onDay) fn(this);
     void P;
   }
+}
+
+function listOf(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? 'one place';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
 /** Convenience for batch runs: build, run N years, return the world. */

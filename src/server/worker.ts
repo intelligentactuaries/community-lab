@@ -7,13 +7,13 @@ import type { ExperimentArm, ExperimentSpec } from '../shared/exchange';
 import { summariseRun } from '../sim/batch';
 import { alivePeople } from '../sim/ctx';
 import { Simulation } from '../sim/engine';
-import { runArm } from '../sim/experiment';
+import { type ArmSpec, runArm } from '../sim/experiment';
 import { type Grouping, experienceCells, trueBasis } from '../sim/experience';
 import { assumptionsHash, type ScenarioParams } from '../sim/params';
 import { DAYS_PER_YEAR, calendarForDay } from '../sim/time';
 
 export type Task =
-  | { kind: 'arm'; spec: Pick<ExperimentSpec, 'base' | 'baseMortality' | 'baseShocks' | 'years'>; arm: ExperimentArm | null; seed: string }
+  | { kind: 'arm'; spec: ArmSpec & Pick<ExperimentSpec, 'years'>; arm: ExperimentArm | null; seed: string }
   | { kind: 'batch'; params: Partial<ScenarioParams>; years: number; seed: string }
   | { kind: 'experience'; params: Partial<ScenarioParams>; years: number; seed: string; ageWidth: number; group: Grouping };
 
@@ -41,7 +41,7 @@ function run(task: Task): unknown {
     cells: experienceCells(sim, { ageWidth: task.ageWidth, group: task.group }),
     truth: trueBasis(sim),
     basisHash: sim.world.basisHash,
-    assumptionsHash: assumptionsHash(sim.params),
+    assumptionsHash: assumptionsHash(sim.params, sim.atlas.hash),
     span: { from: calendarForDay(sim.ctx.startMs, 0).isoDate, to: calendarForDay(sim.ctx.startMs, sim.world.day).isoDate },
     ms: Math.round(performance.now() - t0),
   };

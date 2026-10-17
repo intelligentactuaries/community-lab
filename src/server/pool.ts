@@ -21,8 +21,8 @@ import type { Task, TaskMessage, TaskReply } from './worker';
  *  embedded drive, which is not found.) From source, by its absolute URL,
  *  since a relative name would resolve against the working directory, which
  *  the IDE sets to the data folder. */
-function workerSpecifier(): string {
-  return /\$bunfs|~BUN/.test(import.meta.path) ? './worker.ts' : new URL('./worker.ts', import.meta.url).href;
+export function workerSpecifier(path: string = import.meta.path, url: string = import.meta.url): string {
+  return /\$bunfs|~BUN/.test(path) ? './worker.ts' : new URL('./worker.ts', url).href;
 }
 
 interface Pending {

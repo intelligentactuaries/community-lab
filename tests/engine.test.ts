@@ -108,8 +108,8 @@ describe('engine', () => {
       for (const c of residentialOf(city)) expect(seatComs).toContain(c);
       for (const c of residentialOf(city)) expect(seatComs.filter((x) => x === c).length).toBeLessThanOrEqual(3);
       expect(w.council.find((s) => s.city === city && s.role === 'health')?.personId).toBe(w.roles.dmoByCity[city]);
-      expect(w.roles.magistrateByCourt[landmark(residentialOf(city)[0], 'court')]).not.toBeNull();
-      expect(w.roles.doctorByClinic[landmark(residentialOf(city)[0], 'clinic')]).not.toBeNull();
+      expect(w.roles.magistrateByCourt[landmark(residentialOf(city)[0], 'court')!]).not.toBeNull();
+      expect(w.roles.doctorByClinic[landmark(residentialOf(city)[0], 'clinic')!]).not.toBeNull();
     }
     // the centre is staffed from every city
     expect(w.roles.surgeonIds.length).toBe(2);

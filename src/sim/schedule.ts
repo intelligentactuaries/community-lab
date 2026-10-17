@@ -16,7 +16,8 @@ import { recordAirTrip } from './finance/transport';
 import { FLIGHTS, HOMEBOUND, OUTBOUND } from './transit';
 import type { Activity, ActivityKind, Building, Gathering, Household, JobId, Person, Room } from './types';
 import { isOutdoorFriendly } from './weather';
-import { AIRPORT_TERMINAL, COUNCIL_IDS, cityOf, landmark, roadDistance, roomByKind, tierOf } from './world';
+import { activeAtlas } from './atlas';
+import { AIRPORT_TERMINAL, COUNCIL_IDS, cityOf, defaultCommunity, landmark, roadDistance, roomByKind, tierOf } from './world';
 
 const HOLIDAYS_ZA: Record<string, string> = {
   '01-01': "New Year's Day",
@@ -161,12 +162,14 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
   // The settlement's own church (if it has one), shop and park; the school,
   // clinic, court and hall are the city's; the stadium, the mall and the
   // hospital are the region's.
-  const com = house.community ?? 'ebenezer';
+  const com = house.community ?? defaultCommunity();
   const city = cityOf(com);
   const CH = landmark(com, 'church');
+  // A world may lack a place: the shop and the clinic fall back on staying in, the park on the yard.
   const SH = landmark(com, 'shop');
-  const PK = landmark(com, 'park');
+  const PK = landmark(com, 'park') ?? H;
   const CL = landmark(com, 'clinic');
+  const V = activeAtlas().venues;
   const roomKind = (bid: string | null, kind: Room['kind']) => (bid ? roomByKind(world.buildings[bid], kind)?.id : undefined);
   const chNave = roomKind(CH, 'nave');
   const chHall = roomKind(CH, 'hall') ?? chNave;
@@ -185,7 +188,7 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
 
   // ── Health overrides ──
   if (p.health.hospitalDaysLeft > 0) {
-    const ward = p.health.hospitalId ?? CL;
+    const ward = p.health.hospitalId ?? CL ?? H;
     if (p.health.admittedDay === world.day) {
       // Admitted this morning: the ambulance comes for them after first light.
       const t0 = jitter(rng, 420, 45);
@@ -203,7 +206,7 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
     plan.push(act('sleep', 0, 480, H, 'sleeping', bed));
     plan.push(act('rest', 480, 1440, H, 'resting at home (unwell)', rng.bernoulli(0.6) ? bed : living));
     // A clinic visit if not yet seen
-    if (sick && world.day - p.health.lastClinicDay > 2 && (dc.weekday >= 1 && dc.weekday <= 5)) {
+    if (sick && world.day - p.health.lastClinicDay > 2 && (dc.weekday >= 1 && dc.weekday <= 5) && CL) {
       const t = jitter(rng, 600, 60);
       plan.push(act('clinic', t, t + 75, CL, 'at the clinic', roomKind(CL, 'reception')));
     }
@@ -217,7 +220,7 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
     const dest = rng.pick(['Johannesburg', 'Cape Town', 'Durban', 'Gqeberha']);
     plan.push(act('sleep', 0, dep - 135, H, 'sleeping', bed));
     plan.push(act('breakfast', dep - 135, dep - 105, H, 'an early breakfast', kitchen));
-    const fl = act('flight', dep - 105, ret + 25, AIRPORT_TERMINAL, dc.weekday === 6 ? `a day out in ${dest}, by air` : `flying to ${dest} for the day`, roomKind(AIRPORT_TERMINAL, 'hall'));
+    const fl = act('flight', dep - 105, ret + 25, AIRPORT_TERMINAL!, dc.weekday === 6 ? `a day out in ${dest}, by air` : `flying to ${dest} for the day`, roomKind(AIRPORT_TERMINAL, 'hall'));
     fl.flight = { dep, ret };
     plan.push(fl);
     world.stats.airTrips++;
@@ -257,11 +260,16 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
       plan.push(act('lunch', t + 10, t + 60, H, 'Sunday lunch', kitchen));
       t += 60;
     } else if (!CH && !isBaby && !sick && rng.bernoulli(0.3 + 0.2 * wealth)) {
-      // Newhaven's Sunday morning: Grand Park, the sports centre or the mall, then lunch out.
-      const out = rng.weighted<[string, Room['kind'], string]>([[['grandpark', 'pitch', 'a Sunday morning in Grand Park'], 0.5], [['un-sports', 'pitch', 'Sunday sport at the sports centre'], isKid || isTeen ? 0.3 : 0.15], [['mall', 'hall', 'brunch at the mall'], 0.35]]);
+      // Newhaven's Sunday morning: Grand Park, the sports centre or the mall, then lunch out (the local park where the world has none of them).
+      const venueName = (id: string | null, fallback: string) => (id ? world.buildings[id]?.name ?? fallback : fallback);
+      const out = rng.weighted<[string, Room['kind'], string]>([
+        [[V.grandpark ?? PK, 'pitch', `a Sunday morning in ${venueName(V.grandpark, 'the park')}`], 0.5],
+        [[V.sports ?? PK, 'pitch', `Sunday sport at ${V.sports ? 'the sports centre' : 'the park'}`], isKid || isTeen ? 0.3 : 0.15],
+        [[V.mall ?? SH ?? PK, V.mall ? 'hall' : 'shop', V.mall ? 'brunch at the mall' : 'a Sunday morning out'], 0.35],
+      ]);
       const leave = jitter(rng, 570, 20);
       plan.push(act('idle', t, leave, H, 'a slow Sunday morning', living));
-      plan.push(act(out[0] === 'mall' ? 'shop' : isKid ? 'play' : 'rest', leave, leave + 170, out[0], out[2], roomKind(out[0], out[1])));
+      plan.push(act(out[0] === V.mall ? 'shop' : isKid ? 'play' : 'rest', leave, leave + 170, out[0], out[2], roomKind(out[0], out[1]) ?? roomKind(out[0], 'yard')));
       t = leave + 180;
       plan.push(act('lunch', t, t + 45, H, 'Sunday lunch', kitchen));
       t += 45;
@@ -272,7 +280,8 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
     }
     // Sunday afternoon: visits, rest, park — and, from every city, Grand Park
     if (!isBaby && rng.bernoulli(0.12 + 0.1 * wealth) && (hasCar || rng.bernoulli(0.5))) {
-      plan.push(act(isKid ? 'play' : 'rest', t + 20, t + 170, 'grandpark', 'an afternoon in Grand Park', roomByKind(world.buildings.grandpark, isKid ? 'yard' : 'pitch')?.id));
+      const GP = V.grandpark ?? PK;
+      plan.push(act(isKid ? 'play' : 'rest', t + 20, t + 170, GP, `an afternoon in ${world.buildings[GP]?.name ?? 'the park'}`, roomByKind(world.buildings[GP], isKid ? 'yard' : 'pitch')?.id));
       t += 180;
     } else if (!isBaby && rng.bernoulli(0.45)) {
       const v = visitTarget(ctx, p, rng);
@@ -308,18 +317,18 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
     // The graveside and the reception are in the deceased's / the couple's own city.
     const gCom = venue.community;
     const CEM = landmark(gCom, 'cemetery');
-    const HALL = landmark(gCom, 'hall');
-    if (gathering.kind === 'funeral') plan.push(act('funeral', gathering.end, gathering.end + 30, CEM, 'at the graveside', roomKind(CEM, 'graves')));
-    if (gathering.kind === 'wedding') plan.push(act('celebration', gathering.end + 10, gathering.end + 190, HALL, 'wedding reception', roomKind(HALL, 'hall')));
+    const HALL = landmark(gCom, 'hall') ?? gathering.buildingId;
+    if (gathering.kind === 'funeral' && CEM) plan.push(act('funeral', gathering.end, gathering.end + 30, CEM, 'at the graveside', roomKind(CEM, 'graves')));
+    if (gathering.kind === 'wedding') plan.push(act('celebration', gathering.end + 10, gathering.end + 190, HALL, 'wedding reception', roomKind(HALL, 'hall') ?? roomKind(HALL, 'living')));
     t = gathering.end + (gathering.kind === 'wedding' ? 200 : 45);
     return evening(ctx, plan, p, house, t, rng, dc);
   }
 
   // ── Work / school on weekdays ──
   const weekday = dc.weekday >= 1 && dc.weekday <= 5;
-  if (isKid && p.schooling === 'school' && dc.schoolDay) {
+  const SCH = landmark(com, 'school');
+  if (isKid && p.schooling === 'school' && dc.schoolDay && SCH) {
     const start = jitter(rng, 440, 6);
-    const SCH = landmark(com, 'school');
     const classes = world.buildings[SCH].rooms.filter((r) => r.kind === 'classroom');
     plan.push(act('idle', t, start - 10, H, 'getting ready for school', living));
     plan.push(act('school', start - 10, p.age < 13 ? 830 : 870, SCH, 'at school', (p.age < 13 ? classes[0] : classes[1] ?? classes[0])?.id));
@@ -356,7 +365,7 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
   } else if (p.job === 'homemaker' || (p.job === 'unemployed' && rng.bernoulli(0.5)) || p.job === 'retired') {
     plan.push(act('chores', t, jitter(rng, 600, 30), H, 'housework', rng.bernoulli(0.5) ? kitchen : yard));
     t = plan[plan.length - 1].end;
-    if (rng.bernoulli(0.55)) {
+    if (rng.bernoulli(0.55) && SH) {
       plan.push(act('shop', t + 15, t + 60, SH, `shopping at ${world.buildings[SH]?.name ?? 'the shop'}`, shFloor));
       t += 70;
     }
@@ -368,27 +377,29 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
     t = Math.max(t, 740) + 40;
   } else if (p.job === 'unemployed') {
     // Job seeking / piece work, in the city's own places
-    const FARM = landmark(com, 'farm');
-    const TAXI = landmark(com, 'taxi');
-    const WS = landmark(com, 'workshop');
+    // Where the world has no farm, rank or workshop, the hours go to the grounds (or the yard at home).
+    const FARM = landmark(com, 'farm') ?? PK;
+    const TAXI = landmark(com, 'taxi') ?? PK;
+    const WS = landmark(com, 'workshop') ?? PK;
+    const SHx = SH ?? PK;
     const tier = tierOf(com);
     const target = rng.weighted<[string, string | undefined, string]>(
       tier === 'low-income' || tier === 'working'
         ? [
             [[FARM, roomKind(FARM, 'field'), 'looking for piece work at the farm'], 0.3],
-            [[SH, shFloor, 'waiting at the spaza for piece work'], 0.2],
+            [[SHx, shFloor, 'waiting at the spaza for piece work'], 0.2],
             [[TAXI, roomKind(TAXI, 'garage'), 'washing taxis at the rank'], 0.2],
             [[PK, pkBench, 'at the grounds'], 0.3],
           ]
         : tier === 'ultra' || tier === 'affluent'
           ? [
-              [[SH, shFloor, 'asking for work at the shop'], 0.3],
+              [[SHx, shFloor, 'asking for work at the shop'], 0.3],
               [[PK, pkBench, `in ${world.buildings[PK]?.name ?? 'the park'}`], 0.45],
               [[FARM, roomKind(FARM, 'field'), 'looking for piece work at the farm'], 0.25],
             ]
           : [
               [[FARM, roomKind(FARM, 'field'), 'looking for piece work at the farm'], 0.35],
-              [[SH, roomKind(SH, 'yard') ?? shFloor, 'waiting at the market for work'], 0.35],
+              [[SHx, roomKind(SHx, 'yard') ?? shFloor, 'waiting at the market for work'], 0.35],
               [[WS, roomKind(WS, 'workshop'), 'helping at the workshop'], 0.15],
               [[PK, pkBench, 'at the park'], 0.15],
             ],
@@ -400,9 +411,10 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
     // Weekend / holiday for everyone else: chores, then the local shop or, for
     // a growing share as the money allows, the mall in Unity Centre.
     plan.push(act('chores', t, 600, H, dc.holiday ? `${dc.holiday} at home` : 'Saturday chores', rng.bernoulli(0.5) ? yard : living));
-    if (!isBaby && rng.bernoulli(0.08 + 0.32 * wealth) && (hasCar || rng.bernoulli(0.6))) {
-      plan.push(act('shop', 600, 720, 'mall', 'shopping at Unity Mall', roomByKind(world.buildings.mall, 'shop')?.id));
-    } else if (rng.bernoulli(0.5)) plan.push(act('shop', 600, 650, SH, 'Saturday shopping', shFloor));
+    const MALL = V.mall ?? SH;
+    if (!isBaby && rng.bernoulli(0.08 + 0.32 * wealth) && (hasCar || rng.bernoulli(0.6)) && MALL) {
+      plan.push(act('shop', 600, 720, MALL, `shopping at ${world.buildings[MALL]?.name ?? 'the shops'}`, roomByKind(world.buildings[MALL], 'shop')?.id));
+    } else if (rng.bernoulli(0.5) && SH) plan.push(act('shop', 600, 650, SH, 'Saturday shopping', shFloor));
     plan.push(act('lunch', 730, 770, H, 'lunch', kitchen));
     t = 770;
   }
@@ -419,7 +431,7 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
       t += 100;
     }
   }
-  if (!isBaby && p.age >= 16 && rng.bernoulli(0.3)) {
+  if (!isBaby && p.age >= 16 && rng.bernoulli(0.3) && SH) {
     plan.push(act('shop', Math.max(t, 1020), Math.max(t, 1020) + 35, SH, 'picking up groceries', shFloor));
     t = Math.max(t, 1020) + 40;
   }
@@ -436,14 +448,14 @@ export function buildDailyPlan(ctx: Ctx, p: Person, dc: DayContext): Activity[] 
   } else if (dc.weekday === 3 && p.age >= 12 && rng.bernoulli(0.12 + 0.1 * p.big5.O)) {
     // Newhaven's midweek evening is the library's.
     const LIB = landmark(com, 'library');
-    plan.push(act('rest', 1110, 1180, LIB, 'an evening at the library', roomKind(LIB, 'library')));
+    if (LIB) plan.push(act('rest', 1110, 1180, LIB, 'an evening at the library', roomKind(LIB, 'library')));
   }
   // ── Unity Park: the Saturday match and the concert draw from every city ──
-  if (dc.weekday === 6 && !isBaby && p.age >= 8 && !plan.some((a) => a.kind === 'work' && a.end > 900) && rng.bernoulli(clamp(0.1 * (0.5 + p.big5.E) * (hasCar ? 1.3 : 0.8) * (isTeen || (p.sex === 'M' && p.age < 55) ? 1.4 : 0.8), 0, 0.5))) {
-    plan.push(act('match', 880, 1030, 'stadium', 'at the match at Unity Stadium', roomByKind(world.buildings.stadium, 'stand')?.id));
+  if (dc.weekday === 6 && !isBaby && p.age >= 8 && !plan.some((a) => a.kind === 'work' && a.end > 900) && rng.bernoulli(clamp(0.1 * (0.5 + p.big5.E) * (hasCar ? 1.3 : 0.8) * (isTeen || (p.sex === 'M' && p.age < 55) ? 1.4 : 0.8), 0, 0.5)) && V.stadium) {
+    plan.push(act('match', 880, 1030, V.stadium, `at the match at ${world.buildings[V.stadium]?.name ?? 'the stadium'}`, roomByKind(world.buildings[V.stadium], 'stand')?.id));
   }
-  if (dc.weekday === 5 && (ctx.cal.day <= 7 || (ctx.cal.day > 14 && ctx.cal.day <= 21)) && p.age >= 14 && rng.bernoulli(clamp(0.04 + 0.1 * wealth * (0.5 + p.big5.O), 0, 0.3))) {
-    plan.push(act('concert', 1140, 1290, 'concert', 'at a concert at Unity Concert Hall', roomByKind(world.buildings.concert, 'auditorium')?.id));
+  if (dc.weekday === 5 && (ctx.cal.day <= 7 || (ctx.cal.day > 14 && ctx.cal.day <= 21)) && p.age >= 14 && rng.bernoulli(clamp(0.04 + 0.1 * wealth * (0.5 + p.big5.O), 0, 0.3)) && V.concert) {
+    plan.push(act('concert', 1140, 1290, V.concert, `at a concert at ${world.buildings[V.concert]?.name ?? 'the concert hall'}`, roomByKind(world.buildings[V.concert], 'auditorium')?.id));
   }
   return evening(ctx, plan, p, house, t, rng, dc);
 }
@@ -501,6 +513,7 @@ const FLYER_ODDS: Partial<Record<JobId, number>> = { executive: 0.2, centralbank
 
 /** Wheels-up out and back-on-the-ground home for a day trip by air, or null for everyone staying on the ground today. */
 function flightFor(p: Person, dc: DayContext, rng: Rng, working: boolean, wealth: number): [number, number] | null {
+  if (!AIRPORT_TERMINAL) return null;
   if (p.age < 18 || (p.health.state !== 'healthy' && p.health.state !== 'recovering')) return null;
   let odds = 0;
   if (dc.weekday >= 1 && dc.weekday <= 5 && !dc.holiday && working) odds = (FLYER_ODDS[p.job] ?? 0) + (p.job === 'office' && wealth >= 0.85 ? 0.025 : 0);

@@ -14,6 +14,8 @@ import { api, syncProvidersToServer, type ProvidersInfo } from './lib/api';
 import { navState } from './lib/controls';
 import { aiStatus } from './lib/dialogue';
 import { store, useStore } from './lib/simStore';
+import { BuilderView } from './builder/BuilderView';
+import { useBuilder } from './builder/builderStore';
 import { desktop } from './workbench/desktop';
 import { workspace } from './workbench/workspace';
 
@@ -23,6 +25,7 @@ const workbenchCommands = () => import('./workbench/commands');
 
 export function App() {
   const st = useStore();
+  const bld = useBuilder();
   const [info, setInfo] = useState<ProvidersInfo | null>(null);
   useEffect(() => {
     let alive = true;
@@ -48,6 +51,8 @@ export function App() {
   }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Build mode has keys of its own (BuilderCanvas).
+      if (bld.active) return;
       // Ctrl/Cmd+1 and +2 switch the views from anywhere.
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === '1' || e.key === '2')) {
         e.preventDefault();
@@ -84,7 +89,15 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [st.settingsOpen, st.helpOpen, st.sceneOpen, st.drawerTab, st.followId, st.drill, st.selection, st.sidebarOpen, st.inspectorOpen, st.legendOpen]);
+  }, [st.settingsOpen, st.helpOpen, st.sceneOpen, st.drawerTab, st.followId, st.drill, st.selection, st.sidebarOpen, st.inspectorOpen, st.legendOpen, bld.active]);
+  if (bld.active)
+    return (
+      <div className="app builder-mode">
+        <BuilderView />
+        <SettingsModal info={info} onInfo={setInfo} />
+        <HelpOverlay />
+      </div>
+    );
   const bench = st.view === 'workbench';
   return (
     <div className={`app ${bench ? 'in-workbench' : ''}`}>

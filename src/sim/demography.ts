@@ -18,7 +18,8 @@ import { bereave, endConversation } from './social';
 import { basisDailyHazard, recordBirth, recordDeath, type DeathSource } from './stats';
 import { DAYS_PER_YEAR } from './time';
 import type { World, Gathering, Household, Person, CommunityId } from './types';
-import { CITY, cityOf, landmark, roomByKind, tierOf } from './world';
+import { activeAtlas } from './atlas';
+import { CITY, CLINIC_IDS, cityOf, defaultCommunity, landmark, roomByKind, tierOf } from './world';
 
 /** Scales individual multipliers so their population average ≈ 1 (see docs/ASSUMPTIONS.md). */
 /** Share of table deaths not already produced by illness episodes; calibrated (docs/ASSUMPTIONS.md). */
@@ -204,19 +205,25 @@ function nextSaturday(day: number, minDaysAhead: number, weekday: number): numbe
 
 function communityOfHousehold(world: World, householdId: string | null | undefined): CommunityId {
   const hh = householdId ? world.households[householdId] : null;
-  return (hh ? world.buildings[hh.houseId]?.community : null) ?? 'ebenezer';
+  return (hh ? world.buildings[hh.houseId]?.community : null) ?? defaultCommunity();
+}
+
+/** The household's home (a memorial or a wedding at home where the world has no church, hall or court). */
+function homeOf(world: World, householdId: string | null | undefined): string {
+  const hh = householdId ? world.households[householdId] : null;
+  return hh?.houseId ?? Object.keys(world.buildings)[0];
 }
 
 /** Where a household's funerals are held: its settlement's own congregation, or the city's memorial hall where there is none. */
 function funeralVenue(world: World, householdId: string | null | undefined): string {
   const com = communityOfHousehold(world, householdId);
-  return landmark(com, 'church') ?? landmark(com, 'hall');
+  return landmark(com, 'church') ?? landmark(com, 'hall') ?? homeOf(world, householdId);
 }
 
 /** Where a couple marries: the church, or a civil ceremony at the magistrate's court in the secular city. */
 function weddingVenue(world: World, householdId: string | null | undefined): string {
   const com = communityOfHousehold(world, householdId);
-  return landmark(com, 'church') ?? landmark(com, 'court');
+  return landmark(com, 'church') ?? landmark(com, 'court') ?? landmark(com, 'hall') ?? homeOf(world, householdId);
 }
 
 function scheduleFuneral(ctx: Ctx, p: Person): void {
@@ -239,14 +246,17 @@ export function gatheringsDayStep(ctx: Ctx): void {
       if (!dead) continue;
       // Buried in the deceased's own city's cemetery, row by row.
       const cemeteryId = landmark(world.buildings[g.buildingId]?.community, 'cemetery');
-      const cemetery = world.buildings[cemeteryId];
+      const cemetery = cemeteryId ? world.buildings[cemeteryId] : null;
       const graves = cemetery ? roomByKind(cemetery, 'graves') : null;
-      const n = graves ? graves.spots.length : world.graves.length;
-      const cols = 7;
-      const gx = graves ? graves.x + 6 + (n % cols) * 9 : 430;
-      const gy = graves ? graves.y + 6 + Math.floor(n / cols) * 9 : 70;
-      world.graves.push({ personId: dead.id, name: fullName(dead), day: world.day, x: gx, y: Math.min(gy, graves ? graves.y + graves.h - 4 : 100) });
-      if (graves) graves.spots.push({ id: `grave-${dead.id}`, kind: 'grave', x: gx, y: gy });
+      // A world without a cemetery buries its dead out of town: no grave on the map.
+      if (cemetery) {
+        const n = graves ? graves.spots.length : world.graves.length;
+        const cols = 7;
+        const gx = graves ? graves.x + 6 + (n % cols) * 9 : cemetery.x + 6;
+        const gy = graves ? graves.y + 6 + Math.floor(n / cols) * 9 : cemetery.y + 6;
+        world.graves.push({ personId: dead.id, name: fullName(dead), day: world.day, x: gx, y: Math.min(gy, graves ? graves.y + graves.h - 4 : cemetery.y + cemetery.h - 4) });
+        if (graves) graves.spots.push({ id: `grave-${dead.id}`, kind: 'grave', x: gx, y: gy });
+      }
       world.stats.funerals++;
       ctx.emit({ kind: 'funeral', severity: 'sad', text: `${CITY[cityOf(world.buildings[g.buildingId]?.community)].name} buries ${fullName(dead)} today.`, personIds: [dead.id], buildingId: g.buildingId });
     } else if (g.kind === 'wedding') {
@@ -400,7 +410,7 @@ function giveBirth(ctx: Ctx, mother: Person): void {
   }
   if (born.length) {
     const names = born.map((b) => b.firstName).join(' and ');
-    ctx.emit({ kind: 'birth', severity: 'joy', text: `${fullName(mother)} gave birth to ${born.length === 2 ? 'twins, ' : ''}${names}${born.length === 1 ? ` (${born[0].sex === 'M' ? 'boy' : 'girl'})` : ''}.`, personIds: [mother.id, ...born.map((b) => b.id)], householdId: mother.householdId, buildingId: 'clinic' });
+    ctx.emit({ kind: 'birth', severity: 'joy', text: `${fullName(mother)} gave birth to ${born.length === 2 ? 'twins, ' : ''}${names}${born.length === 1 ? ` (${born[0].sex === 'M' ? 'boy' : 'girl'})` : ''}.`, personIds: [mother.id, ...born.map((b) => b.id)], householdId: mother.householdId, buildingId: CLINIC_IDS[0] });
     mother.history.push({ day: world.day, kind: 'birth', text: `Gave birth to ${names}.` });
     if (father) father.history.push({ day: world.day, kind: 'birth', text: `${names} born.` });
     for (const m of hh ? householdMembers(world, hh.id) : []) m.mood = clamp(m.mood + 0.3, -1, 1);
@@ -594,7 +604,7 @@ export function emigrate(ctx: Ctx, p: Person, why: string): void {
     }
   }
   world.stats.emigrations++;
-  ctx.emit({ kind: 'emigration', severity: 'info', text: `${fullName(p)} ${why}.`, personIds: [p.id], buildingId: landmark(communityOfHousehold(world, hh?.id), 'busstop') });
+  ctx.emit({ kind: 'emigration', severity: 'info', text: `${fullName(p)} ${why}.`, personIds: [p.id], buildingId: landmark(communityOfHousehold(world, hh?.id), 'busstop') ?? undefined });
   p.history.push({ day: world.day, kind: 'emigration', text: why });
   refreshRoles(world);
 }
@@ -617,7 +627,7 @@ export function migrationMonthStep(ctx: Ctx): void {
     if (!rng.bernoulli(1 - Math.pow(1 - clamp(P.immigrationHazard, 0, 0.95), 1 / 12))) continue;
     const surname = pickOutsideSurname(ctx);
     const com = house.community;
-    const prof = com === 'ebenezer' ? null : profileFor(P, com);
+    const prof = com === activeAtlas().baseline ? null : profileFor(P, com);
     const hh = newHousehold(ctx, surname, house.id, world.day);
     composeHouseholdPublic(ctx, hh, rng.weighted([['family', 0.55], ['couple', 0.25], ['single', 0.1], ['singleParent', 0.1]]), surname, prof?.educationMix);
     house.name = `${surname} home`;
