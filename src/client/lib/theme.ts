@@ -18,6 +18,14 @@ export function isSimTheme(): boolean {
   return cached === 'sim';
 }
 
+/** The theme the dashboards hold while they cover the scene: the embedding
+ *  window's (Scelo's), else this device's. */
+export function steadyTheme(): ResolvedTheme {
+  if (hostTheme) return hostTheme;
+  if (typeof window === 'undefined') return 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
 export function getThemeChoice(): ThemeChoice {
   try {
     const v = localStorage.getItem(KEY);

@@ -6,7 +6,7 @@ import { CITIES, CITY, COMMUNITIES, COMMUNITY, cityAt, communityAt, pointInRect 
 import { flyToRect, easeCamera, fitWorld, focusPoint, focusRect, toWorld, zoomAt, type Camera } from '../lib/camera';
 import { dialogueTick, aiStatus } from '../lib/dialogue';
 import { store, useStore } from '../lib/simStore';
-import { isSimTheme } from '../lib/theme';
+import { isSimTheme, steadyTheme } from '../lib/theme';
 import { Controls } from '../lib/controls';
 import { Renderer } from '../render/renderer';
 import { FADE_FROM, blend3d } from '../render3d/view3d';
@@ -159,6 +159,21 @@ export function MapCanvas() {
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(host);
+    let wasCovered = false;
+    // The end of every frame, drawn or not: the speed achieved, the sim's tick, the next frame.
+    const finish = (now: number, dt: number) => {
+      fpsAccum += dt;
+      fpsN++;
+      if (now - lastReport > 1000) {
+        store.achieved = simMinAccum / ((now - lastReport) / 1000);
+        simMinAccum = 0;
+        lastReport = now;
+        fpsAccum = 0;
+        fpsN = 0;
+      }
+      store.maybeTick(now);
+      raf = requestAnimationFrame(frame);
+    };
     const frame = (now: number) => {
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
@@ -199,6 +214,36 @@ export function MapCanvas() {
       const w = store.viewport.w;
       const h = store.viewport.h;
       const cal = calendarForDay(store.startMs, store.sim.world.day);
+      // The UI theme follows the sim's daylight: light by day, dark by night,
+      // blended through dawn and dusk via the --night variable, unless the
+      // user pinned a static theme in the settings. While the dashboards
+      // cover the scene (the drawer open), it holds steady instead: Scelo's
+      // theme, or this device's, so nothing on screen swings with the sim's
+      // day and night.
+      const covered = store.drawerTab !== null;
+      const turned = covered !== wasCovered;
+      wasCovered = covered;
+      const nd = Math.round(nightDarkness(store.sim.world.meta.latitude, cal.dayOfYear, store.sim.world.minuteOfDay) * 100) / 100;
+      if (isSimTheme()) {
+        if (!simOwned) {
+          simOwned = true;
+          lastNight = -1; // reclaim from a static choice: repaint immediately
+        }
+        const target = covered ? (steadyTheme() === 'dark' ? 1 : 0) : nd;
+        if (target !== lastNight) {
+          lastNight = target;
+          const el = document.documentElement;
+          el.style.setProperty('--night', String(target));
+          el.setAttribute('data-theme', target > 0.55 ? 'dark' : 'light');
+        }
+        // The dashboards' charts read the theme when they draw: tell them it moved.
+        if (turned) window.dispatchEvent(new CustomEvent('ia:theme-change'));
+      } else simOwned = false;
+      // Covered, the scene is not drawn (styles.css hides it too); the sim goes on.
+      if (covered) {
+        finish(now, dt);
+        return;
+      }
       // Past the bare floor the map becomes a 3D scene: fetch it as the zoom approaches, fade it in, then let it carry the picture.
       if (store.view3d && !scene3d.current && !scene3d.loading && !scene3d.failed && cam.zoom > FADE_FROM * 0.7) {
         scene3d.loading = true;
@@ -269,22 +314,6 @@ export function MapCanvas() {
         if (scene) document.documentElement.dataset.scene = scene;
         else delete document.documentElement.dataset.scene;
       }
-      // The UI theme follows the sim's daylight: light by day, dark by night,
-      // blended through dawn and dusk via the --night variable — unless the
-      // user pinned a static theme in the settings.
-      const nd = Math.round(nightDarkness(store.sim.world.meta.latitude, cal.dayOfYear, store.sim.world.minuteOfDay) * 100) / 100;
-      if (isSimTheme()) {
-        if (!simOwned) {
-          simOwned = true;
-          lastNight = -1; // reclaim from a static choice: repaint immediately
-        }
-        if (nd !== lastNight) {
-          lastNight = nd;
-          const el = document.documentElement;
-          el.style.setProperty('--night', String(nd));
-          el.setAttribute('data-theme', nd > 0.55 ? 'dark' : 'light');
-        }
-      } else simOwned = false;
       renderer.draw(ctx, {
         world: store.sim.world,
         camera: cam,
@@ -303,17 +332,7 @@ export function MapCanvas() {
         overlay,
         overlayBuildings,
       }, dt);
-      fpsAccum += dt;
-      fpsN++;
-      if (now - lastReport > 1000) {
-        store.achieved = simMinAccum / ((now - lastReport) / 1000);
-        simMinAccum = 0;
-        lastReport = now;
-        fpsAccum = 0;
-        fpsN = 0;
-      }
-      store.maybeTick(now);
-      raf = requestAnimationFrame(frame);
+      finish(now, dt);
     };
     raf = requestAnimationFrame(frame);
     return () => {

@@ -92,7 +92,7 @@ export function SettingsModal({ info, onInfo }: { info: ProvidersInfo | null; on
                 </button>
               ))}
             </div>
-            <div className="muted small">The default blends light and dark with the community’s own sunrise and sunset — dusk and dawn sit in between. Pick a static theme if you prefer a steady view.</div>
+            <div className="muted small">The default blends light and dark with the community’s own sunrise and sunset, dusk and dawn in between. Pick a static theme if you prefer a steady view. While the dashboards are open the theme holds steady anyway, so the charts never flicker with the sim’s day and night.</div>
           </section>
           <section className="modal-section">
             <div className="panel-label">Navigation — Unreal Engine’s viewport controls</div>

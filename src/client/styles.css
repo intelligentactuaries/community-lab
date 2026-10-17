@@ -923,3 +923,13 @@ button.ghost.danger.on { border-color: var(--adversarial); background: color-mix
 .b-people { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--grid); padding-top: 10px; margin-top: 2px; }
 .b-people p { margin: 0; }
 .b-reset { text-decoration: none; margin-left: 2px; }
+
+/* ── The dashboards are the whole picture ─────────────────────────────────
+   Open, the drawer covers the stage and is opaque, and the scene beneath is
+   not drawn (MapCanvas skips it and holds the theme steady meanwhile), so
+   nothing of the community, and none of its day-night loop, shows around or
+   through the dashboards. Closing, the scene comes back as the drawer drops. */
+.drawer { top: 0; height: auto; background: var(--bg-2); backdrop-filter: none; -webkit-backdrop-filter: none; border-top: none; box-shadow: none; }
+.drawer .viz { background: var(--bg); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.stage-wrap:has(.drawer:not(.closing)) .stage { visibility: hidden; }
+.stage-wrap:has(.drawer) { background: var(--bg-2); }
