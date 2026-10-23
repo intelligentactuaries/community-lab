@@ -408,5 +408,5 @@ the behaviour are reproduced in TypeScript (`src/client/lib/controls.ts`, `src/c
 
 ---
 
-<sub>Community Lab is a project of [Intelligent Actuaries (Pty) Ltd](https://intelligentactuaries.com). Public
-methodology, private mandate.</sub>
+<sub>Community Lab is a project of [Intelligent Actuaries (Pty) Ltd](https://intelligentactuaries.com),
+an AI research lab for actuarial science.</sub>
